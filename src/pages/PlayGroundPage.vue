@@ -29,7 +29,7 @@ const adsStore = useAdsStore()
 const audioCont = useAudio()
 
 const mazeRef = ref()
-const level = ref(34)
+const level = ref(0)
 const sizes = computed(() => {
 	return getGridSizeByLevel(level.value)
 })
