@@ -1,0 +1,7 @@
+{
+  "name": "Maze Of Mouse",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "custom"
+}
