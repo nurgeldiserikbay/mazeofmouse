@@ -121,6 +121,11 @@ onBeforeUnmount(() => {
 })
 
 function keydown(e: KeyboardEvent) {
+	if (isWin.value && e.key === 'Enter') {
+		again()
+		audioCont.playAudio('click')
+		return
+	}
 	if (isEnd.value || catDirs.value.length) return
 
 	switch (e.key) {
@@ -147,7 +152,10 @@ function keydown(e: KeyboardEvent) {
 			}
 			break
 		case 'Enter':
-			if (dirs.value.length) {
+			if (isWin.value) {
+				again()
+				audioCont.playAudio('click')
+			} else if (dirs.value.length) {
 				checkAnswers()
 				audioCont.playAudio('dir')
 				audioCont.playAudio('mouseStart')
@@ -477,6 +485,7 @@ function again() {
 				<div>{{ level + 2 }}</div>
 			</div>
 			<UiButton
+				ref="button"
 				class="next-modal__btn"
 				@click="again(), audioCont.playAudio('click')"
 			>

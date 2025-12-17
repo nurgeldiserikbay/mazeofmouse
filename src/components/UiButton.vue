@@ -1,5 +1,6 @@
 <template>
 	<button
+		ref="button"
 		class="ui-button"
 		:class="{ [`ui-button--${bg}`]: true, [`ui-button--${size}`]: true }"
 		:style="{ width: `${width}px` }"
@@ -9,6 +10,8 @@
 </template>
 
 <script lang="ts" setup>
+import { ref } from 'vue'
+
 withDefaults(
 	defineProps<{
 		bg?: string
@@ -21,6 +24,12 @@ withDefaults(
 		size: '',
 	}
 )
+
+const button = ref<HTMLButtonElement>()
+
+defineExpose({
+	button,
+})
 </script>
 
 <style lang="scss" scoped>
@@ -47,9 +56,9 @@ withDefaults(
 	&--grey {
 		background-image: url('@/assets/img/button-grey.png');
 	}
-  
-  &--small {
-    font-size: 24px;
-  }
+
+	&--small {
+		font-size: 24px;
+	}
 }
 </style>
