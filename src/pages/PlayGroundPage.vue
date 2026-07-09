@@ -29,7 +29,7 @@ const adsStore = useAdsStore()
 const audioCont = useAudio()
 
 const mazeRef = ref()
-const level = ref(0)
+const level = ref(gameStore.currentLevel)
 const sizes = computed(() => {
 	return getGridSizeByLevel(level.value)
 })
@@ -87,6 +87,13 @@ watch(
 	() => catRunned.value,
 	() => {
 		if (catRunned.value) audioCont.playAudio('catIn')
+	}
+)
+
+watch(
+	() => level.value,
+	(value) => {
+		gameStore.currentLevel = value
 	}
 )
 
@@ -337,6 +344,8 @@ function reset() {
 function again() {
 	if (timerID) clearTimeout(timerID)
 	if (timerCatID) clearTimeout(timerCatID)
+	if (timerDirID) clearTimeout(timerDirID)
+	if (catAnimId) clearTimeout(catAnimId)
 	reset()
 	isStarted.value = false
 	if ((level.value + 1) % 4 === 0) {

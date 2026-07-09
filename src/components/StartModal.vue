@@ -42,10 +42,6 @@ async function startGame() {
 	saveName()
 	await gameStore.loadData()
 
-	if (!gameStore.tutorialPassed) {
-		gameStore.currentLevel = 0
-	}
-
 	pageStore.routeTo(PAGES.PLAYGROUND)
 }
 </script>

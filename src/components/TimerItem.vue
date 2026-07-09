@@ -20,7 +20,6 @@ const getTimeValue = computed(() => {
 	// if ($props.level > 30) return 200
 	// if ($props.level > 25) return 250
 	// if ($props.level > 20) return 300
-	if ($props.level > 15) return 400
 	if ($props.level > 10) return 400
 	if ($props.level > 5) return 450
 

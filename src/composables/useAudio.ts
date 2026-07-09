@@ -54,8 +54,6 @@ export const useAudio = () => {
 				audio.volume = 0
 			})
 		}
-
-		playAudio('break')
 	}
 
 	function play(name: string) {
