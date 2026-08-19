@@ -10,6 +10,10 @@ export const useGameStore = defineStore('GameStore', () => {
 
 	const gameStats = ref<I_GameStats>([])
 
+	// Достигнутый уровень намеренно НЕ сохраняется между запусками: забег
+	// начинается с первого лабиринта и после проигрыша, и после выхода из
+	// приложения. На диск попадают только рекорды — достигнутый уровень
+	// фиксируется в них как результат забега.
 	const currentLevel = ref<number>(0)
 	const tutorialPassed = ref<boolean>(false)
 
@@ -64,7 +68,6 @@ export const useGameStore = defineStore('GameStore', () => {
 	watch(
 		() => ({
 			gameStats: gameStats.value,
-			currentLevel: currentLevel.value,
 			tutorialPassed: tutorialPassed.value,
 		}),
 		async (data) => {
@@ -82,11 +85,9 @@ export const useGameStore = defineStore('GameStore', () => {
 			try {
 				const parsed = JSON.parse(localData.value) as {
 					gameStats: I_GameStats
-					currentLevel: number
 					tutorialPassed: boolean
 				}
 				gameStats.value = parsed.gameStats || []
-				currentLevel.value = parsed.currentLevel ?? 0
 				tutorialPassed.value = parsed.tutorialPassed ?? false
 			} catch (e) {
 				const old = await Preferences.get({ key: 'gameStats' })

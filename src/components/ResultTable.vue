@@ -33,7 +33,7 @@ function generateCustomName() {
 	<div class="result">
 		<div class="container">
 			<div class="result__in">
-				<div class="result__title">Your Score</div>
+				<div class="result__title">{{ $t('yourScore') }}</div>
 				<div class="result__table">
 					<div>{{ name }}</div>
 					<div>{{ result }}</div>
@@ -45,7 +45,7 @@ function generateCustomName() {
 </template>
 
 <style lang="scss" scoped>
-@import '@/assets/_common.scss';
+@use '@/assets/common' as *;
 
 .result {
 	position: fixed;

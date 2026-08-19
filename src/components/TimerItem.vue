@@ -3,10 +3,17 @@ import { onBeforeUnmount, onMounted, ref, computed, watch } from 'vue'
 import { useAudio } from '@/composables/useAudio'
 
 
-const $props = defineProps<{
-	level: number
-	showCat: boolean
-}>()
+const $props = withDefaults(
+	defineProps<{
+		level: number
+		showCat: boolean
+		// Пауза на время показа полноэкранной рекламы. Таймер перезапускается по
+		// watch на level, поэтому без паузы игрок терял бы время на планирование
+		// ровно на длительность объявления.
+		paused?: boolean
+	}>(),
+	{ paused: false }
+)
 
 const $emits = defineEmits(['timeend'])
 
@@ -42,6 +49,14 @@ watch(
 		if (!$props.showCat) audioCont.stop('catWait')
 	}
 )
+// Под объявлением звук ожидания кота не должен идти поверх рекламы.
+watch(
+	() => $props.paused,
+	(paused) => {
+		if (paused) audioCont.stop('catWait')
+		else if ($props.showCat && date.value > 0) audioCont.play('catWait')
+	}
+)
 
 onMounted(() => {
 	createTimer()
@@ -57,6 +72,8 @@ function createTimer() {
 	audioCont.play('catWait')
 	date.value = getTimeValue.value
 	timerId = setInterval(() => {
+		if ($props.paused) return
+
 		date.value -= 1
 		if (date.value === 0) {
 			clearTimer()

@@ -55,7 +55,7 @@ onBeforeUnmount(() => {
 
 		<div class="start-page__btns">
 			<UiButton @click=";(isStart = true), playAudio('click')">
-				Start
+				{{ $t('start') }}
 			</UiButton>
 			<UiButton
 				:bg="'grey'"
@@ -63,7 +63,7 @@ onBeforeUnmount(() => {
 				:size="'small'"
 				@click=";(isHistory = true), playAudio('click')"
 			>
-				History
+				{{ $t('history') }}
 			</UiButton>
 		</div>
 
@@ -71,7 +71,7 @@ onBeforeUnmount(() => {
 			href="https://docs.google.com/document/d/1DOfHLx0DSwtIGCbjJMWeCGWkfBDVH26vuCuaNO0CO4Q/edit?usp=sharing"
 			target="_blank"
 			class="privacy"
-			>Privacy Policy</a
+			>{{ $t('privacyPolicy') }}</a
 		>
 
 		<StartModal
@@ -228,5 +228,10 @@ onBeforeUnmount(() => {
 	color: #ffdc16;
 	text-decoration: none;
 	letter-spacing: 5px;
+	// Перевод длиннее английского оригинала (ru: «Политика конфиденциальности»),
+	// поэтому строке разрешено переноситься и она не может вылезти за экран.
+	max-width: 90vw;
+	text-align: center;
+	line-height: 1.4;
 }
 </style>

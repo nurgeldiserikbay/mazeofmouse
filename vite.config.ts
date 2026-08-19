@@ -7,7 +7,13 @@ import svgLoader from 'vite-svg-loader'
 export default defineConfig({
 	base: './',
 	build: {
-		outDir: './dist',
+		outDir: './docs',
+	},
+	css: {
+		preprocessorOptions: {
+			// Старый JS-API Dart Sass объявлен устаревшим и будет удалён в Sass 2.0.
+			scss: { api: 'modern-compiler' },
+		},
 	},
 	plugins: [vue(), svgLoader()],
 	resolve: {

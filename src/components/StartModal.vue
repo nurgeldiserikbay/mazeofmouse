@@ -66,7 +66,7 @@ async function startGame() {
 </template>
 
 <style lang="scss" scoped>
-@import '@/assets/_common.scss';
+@use '@/assets/common' as *;
 
 .desc {
 	position: fixed;

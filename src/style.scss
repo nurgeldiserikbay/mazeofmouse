@@ -1,4 +1,4 @@
-@import '@/assets/_common.scss';
+@use '@/assets/common' as *;
 
 @font-face {
 	font-family: Iomanoid;

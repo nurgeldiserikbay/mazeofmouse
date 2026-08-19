@@ -15,14 +15,19 @@ const gameStore = useGameStore()
 
 onMounted(async () => {
 	if (Capacitor.getPlatform() === 'android') {
-		Admob.initialize()
-	}
+		// Реклама не должна ломать запуск: ошибка инициализации гасится здесь.
+		Admob.initialize().catch(() => {})
 
-	if (Capacitor.getPlatform() === 'android') {
-		await Fullscreen.activateImmersiveMode()
-		await StatusBar.hide()
-		await StatusBar.setOverlaysWebView({ overlay: true })
-		await SplashScreen.hide()
+		try {
+			await Fullscreen.activateImmersiveMode()
+			await StatusBar.hide()
+			await StatusBar.setOverlaysWebView({ overlay: true })
+		} catch {
+			// Полноэкранный режим не критичен — игра должна стартовать в любом случае.
+		} finally {
+			// Сплэш скрываем всегда, иначе приложение зависает на заставке.
+			await SplashScreen.hide().catch(() => {})
+		}
 	}
 
 	gameStore.loadData()

@@ -5,7 +5,6 @@ import { Capacitor } from '@capacitor/core'
 import IconRightArrow from '@/assets/img/right-arrow.svg'
 
 import { usePageStore } from '@/store/pageStore'
-import { useAdsStore } from '@/store/adsStore'
 import { useGameStore } from '@/store/gameStore'
 
 import Admob from '@/utils/admob'
@@ -25,7 +24,6 @@ let timerCatID: ReturnType<typeof setInterval>
 let catAnimId: ReturnType<typeof setInterval>
 const gameStore = useGameStore()
 const pageStore = usePageStore()
-const adsStore = useAdsStore()
 const audioCont = useAudio()
 
 const mazeRef = ref()
@@ -49,6 +47,9 @@ const DIRS: { [key: string]: [number, number] } = {
 	right: [1, 0],
 }
 const isStarted = ref(false)
+// Полноэкранное объявление сейчас на экране: игра под ним продолжает работать,
+// но таймер уровня на это время замирает, иначе реклама съедала бы время игрока.
+const adShowing = ref(false)
 const curPos = ref<[number, number]>([0, 0])
 const curCatPos = ref<[number, number]>([0, 0])
 const currentStyle = ref(`translate(0px, 0px) rotateZ(0deg)`)
@@ -61,6 +62,12 @@ const timeEnd = ref(false)
 const isEnd = ref(false)
 const isCatch = ref(false)
 const isWin = ref<boolean | null>(null)
+
+// Таймер стоит и под объявлением, и на выигранном уровне. Второе — отдельный баг:
+// после победы таймер продолжал идти, и если игрок не жал «Run» сразу, время
+// истекало, кот пробегал записанный маршрут и ловил мышь — проигрыш после победы.
+// С рекламой на экране победы это стало почти гарантированным.
+const timerPaused = computed(() => adShowing.value || isWin.value === true)
 const catRunned = ref(false)
 const hideButton = computed(() => {
 	return catDirs.value.length === 0 && level.value >= 40 && level.value < 50
@@ -210,23 +217,51 @@ function nextCatDir() {
 	}
 }
 
+// Новичок в своём самом первом лабиринте рекламы не видит: интерстишл до
+// первого прохождения — и нарушение Families Policy, и худший первый опыт.
+function isFirstGame() {
+	return !gameStore.gameStats.length && level.value === 0
+}
+
+// Единая точка показа полноэкранной рекламы. Колбэк закрытия используется
+// только для косметики (возврат игровой музыки) и никогда для прогресса игры:
+// если объявление не закроется, зависать будет нечему.
+function showInterstitial(onClosed: () => void = () => {}) {
+	if (Capacitor.getPlatform() !== 'android') {
+		onClosed()
+		return
+	}
+
+	// Если объявление показано не будет, колбэк вызывается синхронно и флаг
+	// вернётся в false в том же тике — таймер даже не заметит паузы.
+	adShowing.value = true
+
+	Admob.interstitial({
+		isFirst: isFirstGame(),
+		onInterstitialAdClosed: () => {
+			adShowing.value = false
+			onClosed()
+		},
+	})
+}
+
 function animCatEnd() {
 	isCatch.value = true
 	audioCont.playAudio('catWin')
+
+	// Проигрыш завершает забег: сохранённый прогресс сбрасывается, чтобы каждый
+	// следующий старт начинался с первого лабиринта. Само level.value здесь не
+	// трогаем — достигнутый уровень ещё нужен как результат для таблицы и
+	// рекордов, а watch на level после проигрыша уже не сработает.
+	gameStore.currentLevel = 0
+
 	catAnimId = setTimeout(() => {
 		audioCont.stop('gameMusic')
 		isEnd.value = true
 		isWin.value = false
 
-		if (Capacitor.getPlatform() === 'android') {
-			adsStore.toggleLoading(true)
-			Admob.interstitial({
-				isFirst: false,
-				onInterstitialAdClosed: () => {
-					adsStore.toggleLoading(false)
-				},
-			})
-		}
+		// Таблица результата уже показана — реклама поверх неё ничего не ждёт.
+		showInterstitial()
 	}, 1500)
 }
 
@@ -239,6 +274,14 @@ function checkWin() {
 		isWin.value = true
 		audioCont.playAudio('mouseWin')
 		audioCont.stop('gameMusic')
+
+		// Реклама показывается на ЗАВЕРШЕНИИ уровня, поверх модалки «Next Maze», а
+		// не после нажатия «Run». Показ в ответ на нажатие означал бы объявление в
+		// момент старта уровня — Google прямо называет это недопустимым
+		// («unexpected full screen interstitial»), и игра по этому пункту уже
+		// отклонялась. Здесь игрок ничего не запускал: уровень пройден, это
+		// естественная пауза.
+		if ((level.value + 1) % 4 === 0) showInterstitial()
 	} else {
 		if (catRunned.value) return
 		nextCatDir()
@@ -348,31 +391,14 @@ function again() {
 	if (catAnimId) clearTimeout(catAnimId)
 	reset()
 	isStarted.value = false
-	if ((level.value + 1) % 4 === 0) {
-		if (Capacitor.getPlatform() === 'android') {
-			adsStore.toggleLoading(true)
-			Admob.interstitial({
-				isFirst: false,
-				onInterstitialAdClosed: () => {
-					adsStore.toggleLoading(false)
-					level.value += 1
-					drawMaze()
-					audioCont.play('gameMusic')
-					isStarted.value = true
-				},
-			})
-		} else {
-			level.value += 1
-			drawMaze()
-			audioCont.play('gameMusic')
-			isStarted.value = true
-		}
-	} else {
-		level.value += 1
-		drawMaze()
-		audioCont.play('gameMusic')
-		isStarted.value = true
-	}
+
+	// Никакой рекламы на этом пути: нажатие «Run» — это запуск уровня игроком, и
+	// объявление здесь было бы «рекламой в момент старта уровня». Показ уже
+	// произошёл раньше, на завершении предыдущего лабиринта (см. checkWin).
+	level.value += 1
+	drawMaze()
+	isStarted.value = true
+	audioCont.play('gameMusic')
 }
 </script>
 
@@ -384,6 +410,7 @@ function again() {
 				class="time"
 				:level="level"
 				:show-cat="!catRunned"
+				:paused="timerPaused"
 				@timeend="timeend"
 			/>
 		</div>
@@ -490,7 +517,7 @@ function again() {
 
 		<div v-if="isWin" class="next-modal">
 			<div class="next-modal__level">
-				<div>Next Maze</div>
+				<div>{{ $t('nextMaze') }}</div>
 				<div>{{ level + 2 }}</div>
 			</div>
 			<UiButton
@@ -498,7 +525,7 @@ function again() {
 				class="next-modal__btn"
 				@click="again(), audioCont.playAudio('click')"
 			>
-				Run
+				{{ $t('run') }}
 			</UiButton>
 		</div>
 
@@ -770,6 +797,10 @@ function again() {
 		color: rgb(254, 206, 13);
 		text-align: center;
 		letter-spacing: 3px;
+		// См. .privacy в StartPage: локализованный заголовок («Новый лабиринт»)
+		// вдвое длиннее «Next Maze» и на узких экранах должен переноситься.
+		max-width: 90vw;
+		line-height: 1.15;
 		-webkit-text-stroke: 2px rgb(45, 128, 0);
 		text-stroke: 2px rgb(45, 128, 0);
 

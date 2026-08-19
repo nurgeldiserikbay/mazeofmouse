@@ -15,9 +15,9 @@ const gameStore = useGameStore()
 					<div class="ht-level">
 						<div v-if="gameStore.gameStats?.length" class="ht-level__table">
 							<div class="ht-level__row">
-								<div class="head">Name</div>
-								<div class="head">Score</div>
-								<div class="head">Date</div>
+								<div class="head">{{ $t('name') }}</div>
+								<div class="head">{{ $t('score') }}</div>
+								<div class="head">{{ $t('date') }}</div>
 							</div>
 							<div class="ht-level__row-body">
 								<div
@@ -33,7 +33,7 @@ const gameStore = useGameStore()
 								</div>
 							</div>
 						</div>
-						<div v-else class="ht-level__record">No Records</div>
+						<div v-else class="ht-level__record">{{ $t('noRecords') }}</div>
 					</div>
 				</div>
 				<button class="history__btn" @click="$emits('close')" />
@@ -43,7 +43,7 @@ const gameStore = useGameStore()
 </template>
 
 <style lang="scss" scoped>
-@import '@/assets/_common.scss';
+@use '@/assets/common' as *;
 
 .history {
 	position: fixed;
