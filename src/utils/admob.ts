@@ -49,6 +49,11 @@ const INTERSTITIAL_MIN_INTERVAL_MS = 60_000
 // нормальном сценарии первым срабатывал Dismissed.
 const INTERSTITIAL_WATCHDOG_MS = 25_000
 
+// Резерв под баннер, пока настоящая высота неизвестна. Совпадает со значением
+// по умолчанию в вёрстке (--ad-slot): adaptive-баннер на телефоне — 50dp, и
+// полоса чуть выше него читается как отдельная техническая строка.
+const BANNER_RESERVE_HEIGHT = 56
+
 const BANNER_AD_ID = 'ca-app-pub-9702825788968948/7982858451'
 const INTERSTITIAL_AD_ID = 'ca-app-pub-9702825788968948/9323860288'
 
@@ -75,6 +80,22 @@ class Admob {
 	// Системные панели возвращены ради показа объявления и ждут обратной уборки.
 	private barsShownForAd = false
 
+	// Кому сообщать, стоит ли в слоте настоящее объявление (см. adsStore).
+	private bannerListener: ((live: boolean, height: number) => void) | null = null
+	/**
+	 * Пришло ли объявление. Ставится только по `Loaded` и снимается только по
+	 * отказу или снятию баннера.
+	 *
+	 * Отдельный флаг нужен потому, что `SizeChanged` о наличии объявления не
+	 * говорит ничего: плагин рассылает его и на загрузке — с настоящим размером,
+	 * и на отказе, скрытии, снятии — с нулями. Если считать слот живым по любому
+	 * из них, после снятия баннера слот останется «живым» с нулевой высотой:
+	 * кросс-промо спрячется, а на его месте будет пустая полоса.
+	 */
+	private bannerLoaded = false
+	/** Последняя известная высота объявления. */
+	private bannerHeightPx = 0
+
 	// Детская конфигурация запросов применяется именно в initialize(), поэтому ни
 	// один запрос рекламы не должен уйти раньше. Промис кэшируется: точки показа
 	// рекламы ждут этот же промис, повторная инициализация не происходит.
@@ -86,6 +107,65 @@ class Admob {
 			this.initPromise = this.runInitialize()
 		}
 		return this.initPromise
+	}
+
+	/** Подписка страницы на состояние слота. Ставится до initialize(). */
+	onBannerChange(listener: (live: boolean, height: number) => void) {
+		this.bannerListener = listener
+	}
+
+	private publishBanner(live: boolean, height = 0) {
+		this.bannerListener?.(live, height)
+	}
+
+	/**
+	 * Нативный баннер рисуется поверх вебвью, а не внутри вёрстки, поэтому сама
+	 * страница о нём ничего не знает. Через эту переменную она узнаёт высоту
+	 * слота и держит под него место.
+	 *
+	 * Это же и есть защита от «реклама перекрывает управление»: раньше низ
+	 * страницы был отодвинут на фиксированные 65px, а adaptive-баннер на
+	 * планшете вырастает до 90dp — и ряд кнопок-стрелок уходил под объявление.
+	 *
+	 * `null` — вернуться к значению по умолчанию из вёрстки, то есть к резерву.
+	 * Место при этом не исчезает: в нём просто снова появляется кросс-промо.
+	 */
+	private setSlotHeight(px: number | null) {
+		if (typeof document === 'undefined') return
+		const root = document.documentElement.style
+		if (px === null) root.removeProperty('--ad-slot')
+		else root.setProperty('--ad-slot', `${Math.max(44, Math.round(px))}px`)
+	}
+
+	/**
+	 * Отодвигает рекламную зону туда же, куда система отодвинула баннер.
+	 *
+	 * Ставится и снимается вместе с самим объявлением, а не один раз при старте:
+	 * отодвигать нужно под баннер, а когда баннера нет — не подо что, в полосе
+	 * стоит кросс-промо, и уехавшая вверх полоса оставит под собой пустую кромку.
+	 *
+	 * Само число не считается здесь и не может: его знает браузер и отдаёт через
+	 * `env(safe-area-inset-bottom)` — то же окно и те же инсеты, что читает
+	 * плагин. Переменной присваивается выражение, а не результат: инсет меняется
+	 * вместе с системными панелями, и вычислять его должен CSS.
+	 *
+	 * Требует `viewport-fit=cover` в `index.html` — без него `env()` всегда ноль
+	 * и вся эта настройка молча ничего не делает.
+	 */
+	private setBannerInset(on: boolean) {
+		if (typeof document === 'undefined') return
+		const root = document.documentElement.style
+		if (on) root.setProperty('--ad-inset', 'env(safe-area-inset-bottom, 0px)')
+		else root.removeProperty('--ad-inset')
+	}
+
+	/** Слот пуст: место остаётся, но в нём снова кросс-промо. */
+	private clearBanner() {
+		this.bannerLoaded = false
+		this.bannerHeightPx = 0
+		this.setSlotHeight(null)
+		this.setBannerInset(false)
+		this.publishBanner(false)
 	}
 
 	private async runInitialize() {
@@ -111,16 +191,41 @@ class Admob {
 		this.listenersRegistered = true
 
 		AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
-			// Subscribe Banner Event Listener
+			this.bannerLoaded = true
+			this.setBannerInset(true)
+			this.publishBanner(true, this.bannerHeightPx || BANNER_RESERVE_HEIGHT)
 		})
 
 		AdMob.addListener(
 			BannerAdPluginEvents.SizeChanged,
 			(size: AdMobBannerSize) => {
-				console.log(size)
-				// Subscribe Change Banner Size
+				// Нули означают, что баннера на экране нет: отказ, скрытие или
+				// снятие. Не «объявление нулевой высоты», а его отсутствие.
+				if (!size.height) {
+					this.clearBanner()
+					return
+				}
+
+				// Настоящая высота заменяет резерв, как только стала известна. О
+				// самом наличии объявления это событие не говорит, поэтому
+				// состояние слота остаётся тем, какое было.
+				this.bannerHeightPx = size.height
+				this.setSlotHeight(size.height)
+				this.setBannerInset(true)
+				this.publishBanner(this.bannerLoaded, size.height)
 			}
 		)
+
+		// Нет заполнения, нет сети, нет объявления: место остаётся за слотом, но
+		// рисует в нём снова кросс-промо. Обнулять резерв нельзя — вёрстка
+		// прыгнет вниз ровно так же, как раньше прыгала вверх при появлении
+		// баннера.
+		AdMob.addListener(BannerAdPluginEvents.FailedToLoad, () => {
+			this.clearBanner()
+			// Ничего не показано — значит следующий заход имеет право попробовать
+			// снова, а не считать баннер уже стоящим.
+			this.bannerVisible = false
+		})
 
 		AdMob.addListener(InterstitialAdPluginEvents.Loaded, (info: AdLoadInfo) => {
 			console.log(info)
@@ -263,11 +368,13 @@ class Admob {
 
 	async hideBanner() {
 		this.bannerVisible = false
+		this.clearBanner()
 		await AdMob.hideBanner()
 	}
 
 	async removeBanner() {
 		this.bannerVisible = false
+		this.clearBanner()
 		await AdMob.removeBanner()
 	}
 

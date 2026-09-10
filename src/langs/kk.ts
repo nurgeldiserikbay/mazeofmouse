@@ -9,4 +9,12 @@ export default {
 	score: 'Ұпай',
 	date: 'Күні',
 	noRecords: 'Әзірге жазба жоқ',
+	promoLabel: 'Жарнама · біздің ойын',
+	promoOpen: 'Ашу',
+	otherGames: 'Басқа ойындар',
+	otherGamesNote: 'Біздің ойындарымыздың жарнамасы',
+	gateTitle: 'Тек ересектерге',
+	gateHint: 'Google Play-де ойын бетін ашу үшін мысалды шығар',
+	gateOpen: 'Google Play-де ашу',
+	gateCancel: 'Бас тарту',
 }

@@ -9,4 +9,12 @@ export default {
 	score: 'Score',
 	date: 'Date',
 	noRecords: 'No Records',
+	promoLabel: 'Ad · our game',
+	promoOpen: 'Open',
+	otherGames: 'More Games',
+	otherGamesNote: 'Ads for our own games',
+	gateTitle: 'Grown-ups only',
+	gateHint: 'Solve the problem to open the game page on Google Play',
+	gateOpen: 'Open in Google Play',
+	gateCancel: 'Cancel',
 }

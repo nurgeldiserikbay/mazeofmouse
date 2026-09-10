@@ -10,6 +10,17 @@
 	src: url('./assets/fonts/The Bomb Sound.ttf') format('truetype');
 }
 
+/*
+   Рекламная зона: настоящая высота объявления плюс системный инсет, на который
+   плагин отодвигает баннер на Android 15+. Значения выставляет admob.ts по
+   событиям баннера (--ad-slot, --ad-inset); пока их нет, действует резерв.
+   Держать место обязан сам layout: нативный баннер рисуется поверх вебвью и
+   ничего не сдвигает.
+*/
+:root {
+	--ad-band: calc(var(--ad-slot, 56px) + var(--ad-inset, 0px));
+}
+
 body {
 	margin: 0;
 	overflow: hidden;

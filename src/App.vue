@@ -9,12 +9,19 @@ import Admob from '@/utils/admob'
 
 import { usePageStore } from '@/store/pageStore'
 import { useGameStore } from '@/store/gameStore'
+import { useAdsStore } from '@/store/adsStore'
 
 const pageStore = usePageStore()
 const gameStore = useGameStore()
+const adsStore = useAdsStore()
 
 onMounted(async () => {
 	if (Capacitor.getPlatform() === 'android') {
+		// Подписка ставится до инициализации: первое событие о баннере может
+		// прийти сразу за ней, и потерять его нельзя — иначе слот останется с
+		// кросс-промо под уже стоящим объявлением.
+		Admob.onBannerChange((live, height) => adsStore.setBanner(live, height))
+
 		// Реклама не должна ломать запуск: ошибка инициализации гасится здесь.
 		Admob.initialize().catch(() => {})
 

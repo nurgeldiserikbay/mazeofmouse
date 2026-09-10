@@ -7,6 +7,7 @@ import { PAGES } from '@/utils/conts'
 import UiButton from '@/components/UiButton.vue'
 import StartModal from '@/components/StartModal.vue'
 import HistoryBlock from '@/components/HistoryBlock.vue'
+import OtherGames from '@/components/OtherGames.vue'
 
 const {
 	play,
@@ -20,6 +21,7 @@ const {
 
 const isStart = ref(false)
 const isHistory = ref(false)
+const isOtherGames = ref(false)
 
 onMounted(() => {
 	play('menuMusic')
@@ -65,6 +67,14 @@ onBeforeUnmount(() => {
 			>
 				{{ $t('history') }}
 			</UiButton>
+			<UiButton
+				:bg="'grey'"
+				:width="120"
+				:size="'small'"
+				@click=";(isOtherGames = true), playAudio('click')"
+			>
+				{{ $t('otherGames') }}
+			</UiButton>
 		</div>
 
 		<a
@@ -81,6 +91,10 @@ onBeforeUnmount(() => {
 		<HistoryBlock
 			v-if="isHistory"
 			@close=";(isHistory = false), playAudio('click')"
+		/>
+		<OtherGames
+			v-if="isOtherGames"
+			@close=";(isOtherGames = false), playAudio('click')"
 		/>
 	</div>
 </template>

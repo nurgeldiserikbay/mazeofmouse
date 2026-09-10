@@ -14,6 +14,8 @@ import UiButton from '@/components/UiButton.vue'
 import BackLink from '@/components/BackLink.vue'
 import TimerItem from '@/components/TimerItem.vue'
 import ResultTable from '@/components/ResultTable.vue'
+import AdSlot from '@/components/AdSlot.vue'
+import OtherGames from '@/components/OtherGames.vue'
 
 import { getMaze, isCross, nextPost } from './game'
 import { getGridSizeByLevel } from './helpers'
@@ -63,12 +65,38 @@ const isEnd = ref(false)
 const isCatch = ref(false)
 const isWin = ref<boolean | null>(null)
 
+// Открыт список «Другие игры», в который ведёт полоса кросс-промо снизу.
+const promoOpen = ref(false)
+
+/**
+ * Забег начался: игрок нажал «Бежать». Отдельный флаг, а не `catDirs.length`,
+ * которым страница гасит кнопки: кот вычерпывает `catDirs` через `shift()`, и
+ * на последнем шаге длина снова становится нулевой — по ней забег выглядит
+ * законченным, хотя кот ещё бежит.
+ */
+const runStarted = ref(false)
+
 // Таймер стоит и под объявлением, и на выигранном уровне. Второе — отдельный баг:
 // после победы таймер продолжал идти, и если игрок не жал «Run» сразу, время
 // истекало, кот пробегал записанный маршрут и ловил мышь — проигрыш после победы.
 // С рекламой на экране победы это стало почти гарантированным.
-const timerPaused = computed(() => adShowing.value || isWin.value === true)
+// Список игр таймер тоже останавливает: он открывается на планировании, где
+// время уже идёт, и читать его под модалкой игрок не может.
+const timerPaused = computed(
+	() => adShowing.value || promoOpen.value || isWin.value === true
+)
 const catRunned = ref(false)
+
+/**
+ * Можно ли открыть список игр касанием полосы кросс-промо.
+ *
+ * Только на этапе планирования: мышь ещё не побежала, и модалку можно открыть,
+ * не отняв у игрока партию. `catRunned` добавлен потому, что кот запускается и
+ * сам, по истечении времени, без нажатия «Бежать».
+ */
+const canOpenPromo = computed(
+	() => !isEnd.value && !runStarted.value && !catRunned.value
+)
 const hideButton = computed(() => {
 	return catDirs.value.length === 0 && level.value >= 40 && level.value < 50
 })
@@ -194,6 +222,7 @@ function timeend() {
 }
 
 function checkAnswers() {
+	runStarted.value = true
 	catDirs.value = [...dirs.value]
 	nextDir()
 }
@@ -373,6 +402,7 @@ function save() {
 
 function reset() {
 	catRunned.value = false
+	runStarted.value = false
 	curPos.value = [0, 0]
 	curCatPos.value = [0, 0]
 	currentStyle.value = `translate(0px, 0px) rotateZ(0deg)`
@@ -534,13 +564,37 @@ function again() {
 			:result="level"
 			@close="save(), audioCont.playAudio('click')"
 		/>
+
+		<!--
+			Полоса под кнопками: пока AdMob не отдал баннер, в ней стоит одна из
+			наших игр, а не пустое место. Касание ведёт в список игр внутри
+			приложения — наружу из детского приложения одним касанием уходить
+			нельзя, и только на планировании, чтобы не отнять партию.
+		-->
+		<AdSlot
+			:interactive="canOpenPromo"
+			@open=";(promoOpen = true), audioCont.playAudio('click')"
+		/>
+
+		<OtherGames
+			v-if="promoOpen"
+			@close=";(promoOpen = false), audioCont.playAudio('click')"
+		/>
 	</div>
 </template>
 
 <style lang="scss" scoped>
 .page {
 	height: 100dvh;
-	padding: 10px 15px 65px;
+	/*
+	   Низ страницы отодвинут на настоящую высоту объявления, а не на
+	   фиксированные 65px, как было раньше: adaptive-баннер на планшете
+	   вырастает до 90dp, и ряд кнопок-стрелок уходил под него — тап попадал в
+	   рекламу. Ровно это Google и называет «ads interfere with app use» и
+	   «inadvertent clicks». Высоту публикует admob.ts через --ad-slot, лишние
+	   8px — зазор, чтобы палец не задевал объявление у самой кромки кнопок.
+	*/
+	padding: 10px 15px calc(var(--ad-band) + 8px);
 	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
