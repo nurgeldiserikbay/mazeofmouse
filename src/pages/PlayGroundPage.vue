@@ -304,13 +304,9 @@ function checkWin() {
 		audioCont.playAudio('mouseWin')
 		audioCont.stop('gameMusic')
 
-		// Реклама показывается на ЗАВЕРШЕНИИ уровня, поверх модалки «Next Maze», а
-		// не после нажатия «Run». Показ в ответ на нажатие означал бы объявление в
-		// момент старта уровня — Google прямо называет это недопустимым
-		// («unexpected full screen interstitial»), и игра по этому пункту уже
-		// отклонялась. Здесь игрок ничего не запускал: уровень пройден, это
-		// естественная пауза.
-		if ((level.value + 1) % 4 === 0) showInterstitial()
+		// Рекламы здесь нет намеренно: сначала игрок видит свой результат.
+		// Объявление показывается позже, по нажатию «Бежать» в модалке — см.
+		// again(). Так порядок такой: результат → Next → реклама → новый лабиринт.
 	} else {
 		if (catRunned.value) return
 		nextCatDir()
@@ -414,7 +410,42 @@ function reset() {
 	isWin.value = null
 }
 
+/**
+ * Каждый N-й пройденный лабиринт зарабатывает полноэкранное объявление.
+ * Само решение о показе всё равно за Admob: там ещё частотный кап и первый
+ * заход новичка, так что «заработал» не значит «покажется».
+ */
+function earnsInterstitial() {
+	return (level.value + 1) % 4 === 0
+}
+
+/** Нажатие «Бежать» уже обрабатывается: второе за тот же переход игнорируем. */
+const advancing = ref(false)
+
+/**
+ * Нажатие «Бежать» в модалке результата.
+ *
+ * Порядок: игрок посмотрел результат → нажал «Бежать» → объявление → новый
+ * лабиринт. Новый лабиринт стартует из колбэка закрытия, но зависнуть на нём
+ * нельзя: Admob вызывает колбэк во всех отказных ветках сразу (реклама
+ * выключена, не загрузилась, не прошла частотный кап, ошибка показа), а на
+ * случай потерянного события закрытия там же стоит страхующий таймер.
+ */
 function again() {
+	if (advancing.value) return
+	advancing.value = true
+
+	if (!earnsInterstitial()) {
+		nextRound()
+		return
+	}
+
+	showInterstitial(nextRound)
+}
+
+function nextRound() {
+	advancing.value = false
+
 	if (timerID) clearTimeout(timerID)
 	if (timerCatID) clearTimeout(timerCatID)
 	if (timerDirID) clearTimeout(timerDirID)
@@ -422,9 +453,6 @@ function again() {
 	reset()
 	isStarted.value = false
 
-	// Никакой рекламы на этом пути: нажатие «Run» — это запуск уровня игроком, и
-	// объявление здесь было бы «рекламой в момент старта уровня». Показ уже
-	// произошёл раньше, на завершении предыдущего лабиринта (см. checkWin).
 	level.value += 1
 	drawMaze()
 	isStarted.value = true
