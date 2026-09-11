@@ -8,6 +8,7 @@ import UiButton from '@/components/UiButton.vue'
 import StartModal from '@/components/StartModal.vue'
 import HistoryBlock from '@/components/HistoryBlock.vue'
 import OtherGames from '@/components/OtherGames.vue'
+import OtherGamesIcon from '@/components/OtherGamesIcon.vue'
 
 const {
 	play,
@@ -41,11 +42,23 @@ onBeforeUnmount(() => {
 					class="start-page__music"
 					@click="toggleMusic(), playAudio('click')"
 				></button>
-				<button
-					:class="{ active: audioActive }"
-					class="start-page__sound"
-					@click="toggleAudio(), playAudio('click')"
-				></button>
+				<div class="start-page__right">
+					<button
+						:class="{ active: audioActive }"
+						class="start-page__sound"
+						@click="toggleAudio(), playAudio('click')"
+					></button>
+					<!-- Вход в «Другие игры». Рядом с кнопкой звука и с той же
+					     приглушённостью: раздел не должен спорить за внимание с
+					     кнопкой Start. -->
+					<button
+						class="start-page__games"
+						:aria-label="$t('otherGames')"
+						@click=";(isOtherGames = true), playAudio('click')"
+					>
+						<OtherGamesIcon />
+					</button>
+				</div>
 			</div>
 		</div>
 
@@ -66,14 +79,6 @@ onBeforeUnmount(() => {
 				@click=";(isHistory = true), playAudio('click')"
 			>
 				{{ $t('history') }}
-			</UiButton>
-			<UiButton
-				:bg="'grey'"
-				:width="120"
-				:size="'small'"
-				@click=";(isOtherGames = true), playAudio('click')"
-			>
-				{{ $t('otherGames') }}
 			</UiButton>
 		</div>
 
@@ -149,6 +154,27 @@ onBeforeUnmount(() => {
 		background-image: url('@/assets/img/sound.png');
 		background-size: cover;
 		background-color: transparent;
+	}
+
+	/* Звук и «Другие игры» держатся вместе у правого края: иначе
+	   space-between растащил бы три кнопки по краям и середине. */
+	&__right {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+	}
+
+	&__games {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background-color: transparent;
+		color: #fff;
+
+		svg {
+			width: 26px;
+			height: 26px;
+		}
 	}
 
 	&__logo {
