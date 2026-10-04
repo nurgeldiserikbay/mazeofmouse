@@ -24,4 +24,7 @@ export default {
 	exitYes: 'Leave',
 	exitNo: 'Stay',
 	restart: 'Restart',
+	// HUD игрового экрана.
+	best: 'Best {score}',
+	dirsHint: 'Tap the arrows: the mouse turns at the next fork',
 }

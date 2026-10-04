@@ -24,4 +24,7 @@ export default {
 	exitYes: 'Шығу',
 	exitNo: 'Қалу',
 	restart: 'Қайта',
+	// HUD игрового экрана.
+	best: 'Рекорд {score}',
+	dirsHint: 'Көрсеткіштерді бас: тышқан жақын айрықта бұрылады',
 }

@@ -72,6 +72,14 @@ const promoOpen = ref(false)
 // Игрок нажал «домой» и решает, уходить ли. Прогресс при уходе сохраняется.
 const exitAsk = ref(false)
 
+// Сколько поворотов помещается в очередь: три полных ряда панели по 12.
+const MAX_DIRS = 36
+
+// Рекорд для HUD. Счёт забега — число пройденных лабиринтов (см. save).
+const bestScore = computed(() =>
+	gameStore.gameStats.reduce((best, stat) => Math.max(best, stat.score), 0)
+)
+
 /**
  * Забег начался: игрок нажал «Бежать». Отдельный флаг, а не `catDirs.length`,
  * которым страница гасит кнопки: кот вычерпывает `catDirs` через `shift()`, и
@@ -495,6 +503,16 @@ function nextRound() {
 			/>
 		</div>
 
+		<!-- Где игрок в забеге и сколько надо, чтобы побить рекорд. -->
+		<div class="hud">
+			<div class="hud__chip hud__chip--level">
+				{{ $t('continueFrom', { level: level + 1 }) }}
+			</div>
+			<div v-if="bestScore > 0" class="hud__chip">
+				{{ $t('best', { score: bestScore }) }}
+			</div>
+		</div>
+
 		<div v-if="maze" class="page__maze-container">
 			<div class="container maze-container">
 				<div ref="mazeRef" class="maze">
@@ -546,6 +564,13 @@ function nextRound() {
 			</div>
 
 			<div class="dirs">
+				<!--
+					Пустая панель учит главному правилу: команда тратится не на
+					каждом шаге, а только на развилке. Без этого новичок жмёт
+					стрелку на каждую клетку пути и проигрывает, не поняв почему.
+				-->
+				<div v-if="!dirs.length" class="dirs__hint">{{ $t('dirsHint') }}</div>
+				<div v-else class="dirs__count">{{ dirs.length }}/{{ MAX_DIRS }}</div>
 				<div class="dirs__in">
 					<div
 						v-for="(dir, dirInd) in dirs"
@@ -565,19 +590,19 @@ function nextRound() {
 
 			<div class="commands">
 				<button
-					:class="{ disabled: isEnd || dirs.length === 36 || catDirs.length }"
+					:class="{ disabled: isEnd || dirs.length >= MAX_DIRS || catDirs.length }"
 					@click="answer('left'), audioCont.playAudio('dir')"
 				></button>
 				<button
-					:class="{ disabled: isEnd || dirs.length === 36 || catDirs.length }"
+					:class="{ disabled: isEnd || dirs.length >= MAX_DIRS || catDirs.length }"
 					@click="answer('right'), audioCont.playAudio('dir')"
 				></button>
 				<button
-					:class="{ disabled: isEnd || dirs.length === 36 || catDirs.length }"
+					:class="{ disabled: isEnd || dirs.length >= MAX_DIRS || catDirs.length }"
 					@click="answer('top'), audioCont.playAudio('dir')"
 				></button>
 				<button
-					:class="{ disabled: isEnd || dirs.length === 36 || catDirs.length }"
+					:class="{ disabled: isEnd || dirs.length >= MAX_DIRS || catDirs.length }"
 					@click="answer('bottom'), audioCont.playAudio('dir')"
 				></button>
 				<button
@@ -667,9 +692,65 @@ function nextRound() {
 	}
 }
 
+.hud {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 8px;
+	margin-top: 8px;
+
+	&__chip {
+		padding: 3px 12px 4px;
+		border: 2px solid hsl(115, 64%, 25%);
+		border-radius: 10px;
+		background: hsl(115, 55%, 30%);
+		box-shadow: 0 3px 0 hsl(115, 64%, 18%);
+		font-size: 15px;
+		line-height: 1.2;
+		letter-spacing: 1px;
+		color: rgba(255, 255, 255, 0.9);
+		white-space: nowrap;
+
+		&--level {
+			color: rgb(254, 206, 13);
+		}
+	}
+}
+
 .maze-container {
 	margin: 10px 0 15px;
 	width: 100%;
+}
+
+/*
+   Квадрат лабиринта берёт ширину экрана, но не больше, чем осталось по высоте.
+   Иначе на коротких телефонах (360x640) ряд стрелок уезжал под рекламную
+   полосу. На обычных экранах основа равна ширине, и ничего не меняется.
+   Без поддержки container-единиц остаётся прежняя раскладка по ширине.
+*/
+@supports (container-type: size) {
+	.page__maze-container {
+		flex: 1 1 auto;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+
+		.dirs,
+		.commands {
+			flex-shrink: 0;
+		}
+	}
+
+	.maze-container {
+		container-type: size;
+		// Ширина квадрата: экран минус поля страницы (2x15) и .container (2x10).
+		flex: 0 1 min(calc(100vw - 50px), 430px);
+		min-height: 0;
+	}
+
+	.maze {
+		width: min(100cqw, 100cqh);
+	}
 }
 
 .maze {
@@ -773,6 +854,30 @@ function nextRound() {
 	margin-bottom: 15px;
 	background: #d5ad51;
 	border-radius: 10px;
+
+	&__hint {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		padding: 0 20px;
+		text-align: center;
+		font-size: 15px;
+		line-height: 1.35;
+		letter-spacing: 0.5px;
+		color: rgba(102, 62, 26, 0.75);
+		pointer-events: none;
+	}
+
+	&__count {
+		position: absolute;
+		right: 8px;
+		bottom: 4px;
+		font-size: 12px;
+		color: rgba(102, 62, 26, 0.6);
+		pointer-events: none;
+	}
 
 	&__in {
 		position: absolute;
