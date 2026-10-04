@@ -20,4 +20,11 @@ export default {
 	gateHint: 'Реши пример, чтобы открыть страницу игры в Google Play',
 	gateOpen: 'Открыть в Google Play',
 	gateCancel: 'Отмена',
+	// Продолжение незаконченного забега и подтверждение выхода.
+	continueFrom: 'Лабиринт {level}',
+	exitTitle: 'Выйти в меню',
+	exitHint: 'Прогресс сохранится',
+	exitYes: 'Выйти',
+	exitNo: 'Остаться',
+	restart: 'Заново',
 }

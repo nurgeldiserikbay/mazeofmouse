@@ -17,4 +17,11 @@ export default {
 	gateHint: 'Google Play-де ойын бетін ашу үшін мысалды шығар',
 	gateOpen: 'Google Play-де ашу',
 	gateCancel: 'Бас тарту',
+	// Продолжение незаконченного забега и подтверждение выхода.
+	continueFrom: '{level}-лабиринт',
+	exitTitle: 'Мәзірге шығу',
+	exitHint: 'Прогресс сақталады',
+	exitYes: 'Шығу',
+	exitNo: 'Қалу',
+	restart: 'Қайта',
 }

@@ -155,8 +155,21 @@ class Admob {
 	private setBannerInset(on: boolean) {
 		if (typeof document === 'undefined') return
 		const root = document.documentElement.style
-		if (on) root.setProperty('--ad-inset', 'env(safe-area-inset-bottom, 0px)')
-		else root.removeProperty('--ad-inset')
+		if (on) {
+			// Нижняя граница не ноль, а 16px: плагин отодвигает баннер от низа на
+			// системный инсет, взятый нативно (BannerExecutor.java, ветка Android
+			// 15+), а вебвью тот же инсет может отдать нулём — в immersive-режиме
+			// системные панели скрыты, и env() про них уже ничего не знает. При
+			// расхождении зона оказалась бы ровно по высоте объявления, и под
+			// висящим баннером снова был бы виден лабиринт. 16px — минимальная
+			// подложка, которая закрывает это расхождение и читается как кромка.
+			root.setProperty(
+				'--ad-inset',
+				'max(env(safe-area-inset-bottom, 0px), 16px)'
+			)
+		} else {
+			root.removeProperty('--ad-inset')
+		}
 	}
 
 	/** Слот пуст: место остаётся, но в нём снова кросс-промо. */

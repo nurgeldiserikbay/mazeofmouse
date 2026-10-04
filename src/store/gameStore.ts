@@ -10,10 +10,15 @@ export const useGameStore = defineStore('GameStore', () => {
 
 	const gameStats = ref<I_GameStats>([])
 
-	// Достигнутый уровень намеренно НЕ сохраняется между запусками: забег
-	// начинается с первого лабиринта и после проигрыша, и после выхода из
-	// приложения. На диск попадают только рекорды — достигнутый уровень
-	// фиксируется в них как результат забега.
+	/**
+	 * Достигнутый уровень незаконченного забега. Сохраняется на диск, чтобы
+	 * «Продолжить» в меню работало и после закрытия приложения, а не только
+	 * пока игра висит в памяти.
+	 *
+	 * Ноль означает «продолжать нечего»: сюда его ставит проигрыш (см.
+	 * animCatEnd) и начало новой игры. Забег обрывается только этими двумя
+	 * способами — выход в меню прогресс сохраняет.
+	 */
 	const currentLevel = ref<number>(0)
 	const tutorialPassed = ref<boolean>(false)
 
@@ -69,6 +74,7 @@ export const useGameStore = defineStore('GameStore', () => {
 		() => ({
 			gameStats: gameStats.value,
 			tutorialPassed: tutorialPassed.value,
+			currentLevel: currentLevel.value,
 		}),
 		async (data) => {
 			await Preferences.set({
@@ -86,9 +92,16 @@ export const useGameStore = defineStore('GameStore', () => {
 				const parsed = JSON.parse(localData.value) as {
 					gameStats: I_GameStats
 					tutorialPassed: boolean
+					currentLevel?: number
 				}
 				gameStats.value = parsed.gameStats || []
 				tutorialPassed.value = parsed.tutorialPassed ?? false
+				// Число, а не что попало: значение читается из файла, который мог
+				// остаться от прошлой версии, где уровень не сохранялся вовсе.
+				currentLevel.value =
+					typeof parsed.currentLevel === 'number' && parsed.currentLevel > 0
+						? parsed.currentLevel
+						: 0
 			} catch (e) {
 				const old = await Preferences.get({ key: 'gameStats' })
 				if (old.value) {

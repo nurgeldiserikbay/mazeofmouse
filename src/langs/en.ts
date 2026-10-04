@@ -17,4 +17,11 @@ export default {
 	gateHint: 'Solve the problem to open the game page on Google Play',
 	gateOpen: 'Open in Google Play',
 	gateCancel: 'Cancel',
+	// Продолжение незаконченного забега и подтверждение выхода.
+	continueFrom: 'Maze {level}',
+	exitTitle: 'Leave to menu?',
+	exitHint: 'Your progress is saved',
+	exitYes: 'Leave',
+	exitNo: 'Stay',
+	restart: 'Restart',
 }

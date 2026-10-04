@@ -1,8 +1,11 @@
 <script lang="ts" setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import { useAudio } from '@/composables/useAudio'
 import { PAGES } from '@/utils/conts'
+
+import { usePageStore } from '@/store/pageStore'
+import { useGameStore } from '@/store/gameStore'
 
 import UiButton from '@/components/UiButton.vue'
 import StartModal from '@/components/StartModal.vue'
@@ -20,9 +23,36 @@ const {
 	audioActive,
 } = useAudio()
 
+const pageStore = usePageStore()
+const gameStore = useGameStore()
+
 const isStart = ref(false)
 const isHistory = ref(false)
 const isOtherGames = ref(false)
+
+/**
+ * Незаконченный забег, к которому можно вернуться.
+ *
+ * Ноль означает «продолжать нечего»: так его оставляет проигрыш и начало новой
+ * игры. Выход в меню, наоборот, прогресс сохраняет — ради этого кнопка и есть.
+ */
+const canContinue = computed(() => gameStore.currentLevel > 0)
+
+/** Уровень показываем человеку, а не индексом с нуля. */
+const continueLevel = computed(() => gameStore.currentLevel + 1)
+
+// Мимо StartModal: имя уже сохранено в прошлый заход, а спрашивать его снова
+// значило бы начать новую партию.
+function continueGame() {
+	playAudio('click')
+	pageStore.routeTo(PAGES.PLAYGROUND)
+}
+
+// Новая игра идёт через модалку с именем, и она же сбрасывает прогресс.
+function openNewGame() {
+	playAudio('click')
+	isStart.value = true
+}
 
 onMounted(() => {
 	play('menuMusic')
@@ -69,9 +99,32 @@ onBeforeUnmount(() => {
 		</div>
 
 		<div class="start-page__btns">
-			<UiButton @click=";(isStart = true), playAudio('click')">
+			<!--
+				Главная кнопка остаётся одна и с прежней подписью: незаконченный
+				забег она продолжает, а если продолжать нечего — начинает новый.
+				Отдельная кнопка «Продолжить» тут не годилась: слово длиннее
+				«Играть» и на любом языке вылезало за края деревянной рамки.
+				Что именно продолжится, говорит подпись под кнопкой.
+			-->
+			<UiButton @click="canContinue ? continueGame() : openNewGame()">
 				{{ $t('start') }}
 			</UiButton>
+
+			<div v-if="canContinue" class="start-page__hint">
+				{{ $t('continueFrom', { level: continueLevel }) }}
+			</div>
+
+			<!-- Начать сначала можно только когда есть что терять. -->
+			<UiButton
+				v-if="canContinue"
+				:bg="'grey'"
+				:width="120"
+				:size="'small'"
+				@click="openNewGame"
+			>
+				{{ $t('restart') }}
+			</UiButton>
+
 			<UiButton
 				:bg="'grey'"
 				:width="120"
@@ -222,6 +275,17 @@ onBeforeUnmount(() => {
 		justify-content: space-between;
 		align-items: center;
 		gap: 28px;
+	}
+
+	/* Подпись стоит внутри колонки кнопок и прижата к своей кнопке: снаружи её
+	   растаскивал space-between самой страницы, и номер лабиринта повисал
+	   посреди пустого экрана, ни к чему не относясь. */
+	&__hint {
+		margin-top: -18px;
+		font-size: 14px;
+		letter-spacing: 1px;
+		color: rgba(255, 255, 255, 0.8);
+		text-align: center;
 	}
 }
 

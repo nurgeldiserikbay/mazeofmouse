@@ -16,6 +16,7 @@ import TimerItem from '@/components/TimerItem.vue'
 import ResultTable from '@/components/ResultTable.vue'
 import AdSlot from '@/components/AdSlot.vue'
 import OtherGames from '@/components/OtherGames.vue'
+import ConfirmExit from '@/components/ConfirmExit.vue'
 
 import { getMaze, isCross, nextPost } from './game'
 import { getGridSizeByLevel } from './helpers'
@@ -68,6 +69,9 @@ const isWin = ref<boolean | null>(null)
 // Открыт список «Другие игры», в который ведёт полоса кросс-промо снизу.
 const promoOpen = ref(false)
 
+// Игрок нажал «домой» и решает, уходить ли. Прогресс при уходе сохраняется.
+const exitAsk = ref(false)
+
 /**
  * Забег начался: игрок нажал «Бежать». Отдельный флаг, а не `catDirs.length`,
  * которым страница гасит кнопки: кот вычерпывает `catDirs` через `shift()`, и
@@ -81,9 +85,14 @@ const runStarted = ref(false)
 // истекало, кот пробегал записанный маршрут и ловил мышь — проигрыш после победы.
 // С рекламой на экране победы это стало почти гарантированным.
 // Список игр таймер тоже останавливает: он открывается на планировании, где
-// время уже идёт, и читать его под модалкой игрок не может.
+// время уже идёт, и читать его под модалкой игрок не может. По той же причине
+// его останавливает и вопрос о выходе: пока игрок решает, время не должно течь.
 const timerPaused = computed(
-	() => adShowing.value || promoOpen.value || isWin.value === true
+	() =>
+		adShowing.value ||
+		promoOpen.value ||
+		exitAsk.value ||
+		isWin.value === true
 )
 const catRunned = ref(false)
 
@@ -396,6 +405,19 @@ function save() {
 	})
 }
 
+/**
+ * Уход в меню по подтверждённому запросу.
+ *
+ * Прогресс не трогаем намеренно: `gameStore.currentLevel` уже держит текущий
+ * лабиринт (его пишет watch на level), и именно он даст в меню «Продолжить».
+ * Обнуляет прогресс только проигрыш — см. animCatEnd.
+ */
+function leaveGame() {
+	exitAsk.value = false
+	audioCont.playAudio('click')
+	pageStore.toBackLink()
+}
+
 function reset() {
 	catRunned.value = false
 	runStarted.value = false
@@ -463,7 +485,7 @@ function nextRound() {
 <template>
 	<div class="page play-page">
 		<div class="page__head">
-			<BackLink />
+			<BackLink confirm @request="exitAsk = true" />
 			<TimerItem
 				class="time"
 				:level="level"
@@ -607,6 +629,12 @@ function nextRound() {
 		<OtherGames
 			v-if="promoOpen"
 			@close=";(promoOpen = false), audioCont.playAudio('click')"
+		/>
+
+		<ConfirmExit
+			v-if="exitAsk"
+			@confirm="leaveGame"
+			@cancel=";(exitAsk = false), audioCont.playAudio('click')"
 		/>
 	</div>
 </template>
