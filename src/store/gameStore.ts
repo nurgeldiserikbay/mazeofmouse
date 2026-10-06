@@ -75,6 +75,10 @@ export const useGameStore = defineStore('GameStore', () => {
 			gameStats: gameStats.value,
 			tutorialPassed: tutorialPassed.value,
 			currentLevel: currentLevel.value,
+			// Имя хранится вместе с прогрессом: «Играть» продолжает забег мимо
+			// окна имени, и без этого после перезапуска в таблицу результата
+			// попадало случайное имя вместо имени игрока.
+			name: name.value,
 		}),
 		async (data) => {
 			await Preferences.set({
@@ -93,6 +97,10 @@ export const useGameStore = defineStore('GameStore', () => {
 					gameStats: I_GameStats
 					tutorialPassed: boolean
 					currentLevel?: number
+					name?: string
+				}
+				if (typeof parsed.name === 'string' && parsed.name) {
+					name.value = parsed.name
 				}
 				gameStats.value = parsed.gameStats || []
 				tutorialPassed.value = parsed.tutorialPassed ?? false

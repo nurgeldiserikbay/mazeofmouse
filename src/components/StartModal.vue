@@ -14,8 +14,10 @@ const $emits = defineEmits(['close'])
 
 const name = ref('')
 
+// Вернувшийся игрок видит своё имя, случайное — только у новичка.
 onMounted(() => {
-	generateCustomName()
+	if (gameStore.name) name.value = gameStore.name
+	else generateCustomName()
 })
 
 function generateCustomName() {
