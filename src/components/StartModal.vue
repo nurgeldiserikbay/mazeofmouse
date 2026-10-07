@@ -6,6 +6,7 @@ import { CUSTOM_NAMES, PAGES } from '@/utils/conts'
 import { usePageStore } from '@/store/pageStore'
 import { useGameStore } from '@/store/gameStore'
 import { randomInt } from '@/pages/game'
+import UiButton from '@/components/UiButton.vue'
 
 const pageStore = usePageStore()
 const gameStore = useGameStore()
@@ -56,19 +57,23 @@ async function startGame() {
 
 <template>
 	<div class="desc" @click="$emits('close')">
-		<div class="container">
-			<div class="desc__in" @click.stop="">
-				<div class="desc__input">
-					<input
-						:value="name"
-						type="text"
-						class="desc__input-body"
-						@input="change"
-						@keypress.enter="saveName"
-					/>
-				</div>
-				<button class="desc__btn" @click="startGame"></button>
-			</div>
+		<div class="desc__in" @click.stop="">
+			<div class="desc__title">{{ $t('name') }}</div>
+			<img class="desc__mouse" src="@/assets/img/v2/token-mouse.webp" alt="" />
+			<input
+				:value="name"
+				type="text"
+				class="desc__input"
+				maxlength="12"
+				@input="change"
+				@keypress.enter="saveName"
+			/>
+			<UiButton :width="220" @click="startGame">
+				<template #icon>
+					<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
+				</template>
+				{{ $t('run') }}
+			</UiButton>
 		</div>
 	</div>
 </template>
@@ -77,72 +82,48 @@ async function startGame() {
 @use '@/assets/common' as *;
 
 .desc {
-	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	z-index: 1000;
-	background: $bgColor;
-	background: $bgGrad;
-	box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.4),
-		inset 0px -2px 4px rgba(255, 255, 255, 0.2);
-	display: flex;
-	justify-content: center;
-	align-items: center;
-
-	.container {
-		width: 100%;
-		max-width: 400px;
-	}
+	@include modal-shade(1000);
 
 	&__in {
-		padding: 60px 28px 48px;
-		border-radius: 12px;
-		height: 60vh;
-		width: 100%;
-		box-sizing: border-box;
+		@include modal-card;
+		max-width: 360px;
 		display: flex;
 		flex-direction: column;
-		justify-content: space-around;
 		align-items: center;
-		overflow: hidden;
-		margin-bottom: 15px;
-		background-image: url('@/assets/img/modal-bg.png');
-		background-size: 100% 100%;
+		gap: 18px;
+		padding-top: 40px;
+		padding-bottom: 28px;
+	}
+
+	&__title {
+		@include modal-title;
+	}
+
+	&__mouse {
+		width: 96px;
+		height: 96px;
+		filter: drop-shadow(0 4px 0 rgba(90, 50, 15, 0.25));
 	}
 
 	&__input {
-		display: flex;
-	}
-
-	&__input-body {
-		width: 250px;
-		background-image: url('@/assets/img/input.png');
-		background-size: contain;
-		aspect-ratio: 4.4;
-		border: none;
-		outline: none;
-		background-color: transparent;
-		font-size: 18px;
-		color: #fff;
-		padding: 2px 25px;
+		width: 100%;
+		max-width: 260px;
 		box-sizing: border-box;
-		font-family: inherit;
-		letter-spacing: 2px;
-	}
+		padding: 12px 16px;
+		border: 2px solid $woodEdge;
+		border-radius: 12px;
+		outline: none;
+		background: #fffaf0;
+		box-shadow: inset 0 3px 0 rgba(90, 50, 15, 0.15);
+		font-family: $font;
+		font-size: 22px;
+		font-weight: 700;
+		text-align: center;
+		color: $ink;
 
-	&__btn {
-		display: block;
-		background-image: url('@/assets/img/start.png');
-		background-size: contain;
-		width: 66px;
-		height: 66px;
-		flex-shrink: 0;
-		background-color: transparent;
-		border-radius: 10px;
-		border: none;
-		cursor: pointer;
+		&:focus {
+			border-color: $leafEdge;
+		}
 	}
 }
 </style>

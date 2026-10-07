@@ -29,22 +29,31 @@ function back() {
 </script>
 
 <template>
-	<button class="back-link" @click="back">
-		<img src="@/assets/img/exit.png" alt="exit" />
+	<button class="back-link" :aria-label="'back'" @click="back">
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H6" /><path d="M11 6l-6 6 6 6" /></svg>
 	</button>
 </template>
 
 <style lang="scss" scoped>
-.back-link {
-	background: transparent;
-	padding: 0;
-	border: none;
-	outline: none;
-	cursor: pointer;
+@use '@/assets/common' as *;
 
-	img {
-		width: 50px;
-		height: 50px;
+.back-link {
+	@include chunky($woodFace, $woodEdge, 4px, 12px);
+	flex-shrink: 0;
+	width: 50px;
+	height: 50px;
+	padding: 0 0 3px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	outline: none;
+	color: $cream;
+	background: linear-gradient(180deg, $woodLight, $woodFace);
+	-webkit-tap-highlight-color: transparent;
+
+	svg {
+		width: 28px;
+		height: 28px;
 	}
 }
 </style>

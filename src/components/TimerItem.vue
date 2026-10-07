@@ -90,40 +90,47 @@ function clearTimer() {
 
 <template>
 	<div class="time">
-		<div
-			class="time__in"
-			:style="{
-				width: getWidth,
-			}"
-		>
-			<img v-if="showCat" src="@/assets/img/cat.png" alt="cat" />
+		<div class="time__track">
+			<div class="time__in" :style="{ width: getWidth }"></div>
 		</div>
+		<img v-if="showCat" class="time__cat" src="@/assets/img/v2/token-cat.webp" alt="cat" />
 	</div>
 </template>
 
 <style lang="scss" scoped>
+@use '@/assets/common' as *;
+
+/* Кот сидит на конце жёлоба и ждёт: когда полоса дойдёт до нуля, он
+   выбежит на поле. Полоса уходит влево, к старту. */
 .time {
-	width: 80%;
-	font-size: 14px;
-	box-sizing: border-box;
-	height: 20px;
-	text-align: center;
-	border-radius: 25px;
-	border: 1px solid hsl(115, 64%, 35%);
+	position: relative;
+	flex: 1;
+	margin-left: 12px;
+	padding-right: 26px;
+
+	&__track {
+		@include wood(14px);
+		height: 26px;
+		padding: 4px;
+		box-sizing: border-box;
+	}
 
 	&__in {
-		position: relative;
-		border-radius: 25px;
 		height: 100%;
-		background: hsl(127, 67%, 58%);
-		filter: drop-shadow(0 0 5px hsl(106, 74%, 63%));
+		border-radius: 8px;
+		background: linear-gradient(180deg, #8be04f, #4fae22);
+		box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.15);
+		transition: width 0.1s linear;
+	}
 
-		img {
-			position: absolute;
-			height: 150%;
-			right: 0;
-			transform: translate(50%, -20%);
-		}
+	&__cat {
+		position: absolute;
+		right: -4px;
+		top: 50%;
+		width: 52px;
+		height: 52px;
+		transform: translateY(-58%);
+		filter: drop-shadow(0 3px 0 rgba(60, 30, 5, 0.35));
 	}
 }
 </style>

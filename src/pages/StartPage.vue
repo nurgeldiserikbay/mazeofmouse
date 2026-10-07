@@ -92,21 +92,32 @@ onBeforeUnmount(() => {
 			</div>
 		</div>
 
+		<!-- Сад во весь экран, позади колонки меню: колонка узкая (до 480px),
+		     а фон должен закрывать и поля по бокам на планшете. -->
+		<div class="start-page__bg" aria-hidden="true"></div>
+
 		<div class="start-page__logo">
-			<img src="@/assets/img/mouse.png" alt="mouse" class="mouse" />
-			<span>Maze <span>Of</span> Mouse</span>
-			<img src="@/assets/img/cat.png" alt="cat" class="cat" />
+			<img src="@/assets/img/v2/cat-peek.webp" alt="" class="cat" />
+			<img src="@/assets/img/v2/logo.webp" alt="Maze of Mouse" class="logo" />
+		</div>
+
+		<div class="start-page__stage" aria-hidden="true">
+			<img src="@/assets/img/v2/mouse-full.webp" alt="" class="mouse" />
 		</div>
 
 		<div class="start-page__btns">
 			<!--
-				Главная кнопка остаётся одна и с прежней подписью: незаконченный
-				забег она продолжает, а если продолжать нечего — начинает новый.
-				Отдельная кнопка «Продолжить» тут не годилась: слово длиннее
-				«Играть» и на любом языке вылезало за края деревянной рамки.
-				Что именно продолжится, говорит подпись под кнопкой.
+				Главная кнопка одна: незаконченный забег она продолжает, а если
+				продолжать нечего — начинает новый. Что именно продолжится,
+				говорит плашка под кнопкой.
 			-->
-			<UiButton @click="canContinue ? continueGame() : openNewGame()">
+			<UiButton
+				:width="270"
+				@click="canContinue ? continueGame() : openNewGame()"
+			>
+				<template #icon>
+					<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
+				</template>
 				{{ $t('start') }}
 			</UiButton>
 
@@ -118,19 +129,25 @@ onBeforeUnmount(() => {
 			<UiButton
 				v-if="canContinue"
 				:bg="'grey'"
-				:width="120"
+				:width="220"
 				:size="'small'"
 				@click="openNewGame"
 			>
+				<template #icon>
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7" /><path d="M4 4v5h5" /></svg>
+				</template>
 				{{ $t('restart') }}
 			</UiButton>
 
 			<UiButton
 				:bg="'grey'"
-				:width="120"
+				:width="220"
 				:size="'small'"
 				@click=";(isHistory = true), playAudio('click')"
 			>
+				<template #icon>
+					<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="12" width="5" height="9" rx="1.5" /><rect x="9.5" y="4" width="5" height="17" rx="1.5" /><rect x="16" y="8" width="5" height="13" rx="1.5" /></svg>
+				</template>
 				{{ $t('history') }}
 			</UiButton>
 		</div>
@@ -158,23 +175,33 @@ onBeforeUnmount(() => {
 </template>
 
 <style lang="scss" scoped>
+@use '@/assets/common' as *;
+
 .start-page {
 	position: relative;
-	padding-top: 100px;
-	padding-bottom: 40px;
-	height: 100vh;
+	padding-top: 92px;
+	padding-bottom: 18px;
+	height: 100dvh;
+	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
-	justify-content: space-between;
 	align-items: center;
-	gap: 12px;
 	max-width: 480px;
 	margin: 0 auto;
+
+	&__bg {
+		position: fixed;
+		inset: 0;
+		z-index: -1;
+		background: #8fd15a url('@/assets/img/v2/menu-bg.webp') center bottom / cover
+			no-repeat;
+	}
 
 	&__head {
 		position: absolute;
 		top: 10px;
 		width: 100%;
+		z-index: 2;
 
 		.container {
 			display: flex;
@@ -188,7 +215,7 @@ onBeforeUnmount(() => {
 			border: none;
 			outline: none;
 			cursor: pointer;
-			opacity: 0.5;
+			opacity: 0.55;
 			transition: 0.3s linear;
 
 			&.active {
@@ -217,121 +244,125 @@ onBeforeUnmount(() => {
 		gap: 8px;
 	}
 
+	/* Значок на светлом небе: белый без подложки терялся, поэтому у него
+	   своя тёмная плашка той же приглушённости, что и раньше. */
 	&__games {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background-color: transparent;
 		color: #fff;
+		background: rgba(40, 70, 20, 0.55) !important;
+		border: 2px solid rgba(255, 255, 255, 0.6) !important;
 
 		svg {
-			width: 26px;
-			height: 26px;
+			width: 24px;
+			height: 24px;
 		}
 	}
 
 	&__logo {
-		max-width: 300px;
 		position: relative;
-		color: rgb(254, 206, 13);
-		text-align: center;
-		letter-spacing: 3px;
-		-webkit-text-stroke: 2px rgb(45, 128, 0);
-		text-stroke: 2px rgb(45, 128, 0);
-		font-size: 42px;
+		width: min(82vw, 360px);
+		margin-top: 10px;
 
-		span {
-			span {
-				font-size: 32px;
-			}
+		.logo {
+			position: relative;
+			display: block;
+			width: 100%;
+			filter: drop-shadow(0 6px 0 rgba(60, 30, 5, 0.35));
 		}
 
-		.mouse,
+		/* Кот выглядывает из-за вывески: лапы на её верхнем крае. */
 		.cat {
 			position: absolute;
-			width: 65px;
-			height: 65px;
-			z-index: -1;
+			right: 0;
+			top: -21%;
+			width: 32%;
+			animation: peek 6s ease-in-out infinite;
 		}
+	}
+
+	/* Свободное место между логотипом и кнопками занимает мышь у норки. */
+	&__stage {
+		flex: 1 1 auto;
+		min-height: 0;
+		width: 100%;
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
 
 		.mouse {
-			top: -35%;
-			left: 12%;
-			width: 55px;
-			height: 55px;
-			z-index: 10;
-			animation: slowMove 10s linear 0.2s infinite;
-		}
-
-		.cat {
-			right: 18%;
-			animation: slowMove 10s linear infinite;
+			width: min(42vw, 190px);
+			max-height: 100%;
+			object-fit: contain;
+			margin: 0 0 6px 18%;
+			filter: drop-shadow(0 6px 0 rgba(30, 60, 10, 0.25));
+			animation: hop 3.2s ease-in-out infinite;
 		}
 	}
 
 	&__btns {
 		display: flex;
 		flex-direction: column;
-		justify-content: space-between;
 		align-items: center;
-		gap: 28px;
+		gap: 16px;
+		padding-top: 8px;
 	}
 
-	/* Подпись стоит внутри колонки кнопок и прижата к своей кнопке: снаружи её
-	   растаскивал space-between самой страницы, и номер лабиринта повисал
-	   посреди пустого экрана, ни к чему не относясь. */
+	/* Плашка «Лабиринт N»: на пёстром фоне голая подпись не читалась. */
 	&__hint {
-		margin-top: -18px;
-		font-size: 14px;
-		letter-spacing: 1px;
-		color: rgba(255, 255, 255, 0.8);
+		margin: -4px 0 2px;
+		padding: 4px 14px 5px;
+		@include wood(10px);
+		font-size: 15px;
+		font-weight: 700;
+		letter-spacing: 0.5px;
+		color: $cream;
 		text-align: center;
 	}
 }
 
-@keyframes slowMove {
-	0% {
-		transform: translate(-2px, -8px);
-	}
-	10% {
-		transform: translate(3px, 8px);
-	}
-	20% {
-		transform: translate(0, -5px);
-	}
-	30% {
-		transform: translate(6px, 6px);
-	}
-	40% {
-		transform: translate(-3px, -6px);
-	}
-	50% {
-		transform: translate(3px, 4px);
-	}
-	60% {
-		transform: translate(5px, -6px);
-	}
-	70% {
-		transform: translate(-5px, 7px);
+@keyframes peek {
+	0%,
+	70%,
+	100% {
+		transform: translateY(0) rotate(0);
 	}
 	80% {
-		transform: translate(0, -5px);
+		transform: translateY(-6%) rotate(-4deg);
 	}
 	90% {
-		transform: translate(3px, 7px);
+		transform: translateY(-2%) rotate(3deg);
 	}
+}
+
+@keyframes hop {
+	0%,
+	60%,
 	100% {
-		transform: translate(-2px, -5px);
+		transform: translateY(0);
+	}
+	70% {
+		transform: translateY(-10px);
+	}
+	80% {
+		transform: translateY(0);
+	}
+	88% {
+		transform: translateY(-4px);
 	}
 }
 
 .privacy {
 	display: block;
-	margin: 25px auto;
-	font-size: 16px;
-	color: #ffdc16;
+	margin: 18px auto 0;
+	font-size: 13px;
+	font-weight: 700;
+	color: #fff4b8;
 	text-decoration: none;
-	letter-spacing: 5px;
+	letter-spacing: 2px;
+	text-transform: uppercase;
+	text-shadow: 0 1px 0 rgba(30, 50, 10, 0.9), 0 0 6px rgba(30, 50, 10, 0.6);
 	// Перевод длиннее английского оригинала (ru: «Политика конфиденциальности»),
 	// поэтому строке разрешено переноситься и она не может вылезти за экран.
 	max-width: 90vw;

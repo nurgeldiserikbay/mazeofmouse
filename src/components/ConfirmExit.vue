@@ -8,11 +8,8 @@ import UiButton from '@/components/UiButton.vue'
  * стоило партии. Прогресс при выходе сохраняется (обнуляет его только
  * проигрыш), поэтому подпись говорит именно это: уйти не страшно.
  *
- * Оформление повторяет модалку «Новый лабиринт» — это здешний язык диалогов:
- * затемнение, крупный жёлтый заголовок с зелёной обводкой прямо поверх игры и
- * деревянные кнопки. Рамка board.png тут не годится: у неё сверху декоративная
- * табличка под заголовок, и текст, поставленный под ней, читается как подпись
- * к пустой вывеске.
+ * Оформление общее для всех окон садовой темы (modal-card в _common.scss):
+ * кремовая карточка в деревянной раме и табличка с заголовком сверху.
  */
 const $emits = defineEmits(['confirm', 'cancel'])
 </script>
@@ -21,15 +18,16 @@ const $emits = defineEmits(['confirm', 'cancel'])
 	<div class="confirm" @click="$emits('cancel')">
 		<div class="confirm__in" @click.stop="">
 			<div class="confirm__title">{{ $t('exitTitle') }}</div>
+			<img class="confirm__mouse" src="@/assets/img/v2/token-mouse.webp" alt="" />
 			<div class="confirm__hint">{{ $t('exitHint') }}</div>
 
-			<UiButton class="confirm__btn" :width="180" @click="$emits('confirm')">
+			<UiButton class="confirm__btn" :width="210" @click="$emits('confirm')">
 				{{ $t('exitYes') }}
 			</UiButton>
 			<UiButton
 				class="confirm__btn"
 				:bg="'grey'"
-				:width="180"
+				:width="210"
 				:size="'small'"
 				@click="$emits('cancel')"
 			>
@@ -40,21 +38,14 @@ const $emits = defineEmits(['confirm', 'cancel'])
 </template>
 
 <style lang="scss" scoped>
+@use '@/assets/common' as *;
+
 .confirm {
-	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	z-index: 1150;
-	background: rgba(12, 24, 8, 0.82);
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	padding: 20px;
-	box-sizing: border-box;
+	@include modal-shade(1150);
 
 	&__in {
+		@include modal-card;
+		max-width: 320px;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -62,33 +53,25 @@ const $emits = defineEmits(['confirm', 'cancel'])
 	}
 
 	&__title {
-		font-size: 32px;
-		line-height: 1.15;
-		letter-spacing: 3px;
-		// Как у .next-modal__level: локализованный заголовок длиннее английского
-		// и на узких экранах должен переноситься, а не уезжать за край.
-		max-width: 90vw;
-		color: rgb(254, 206, 13);
-		-webkit-text-stroke: 2px rgb(45, 128, 0);
-		text-stroke: 2px rgb(45, 128, 0);
-		margin-bottom: 10px;
+		@include modal-title;
+	}
+
+	&__mouse {
+		width: 72px;
+		height: 72px;
+		margin-bottom: 6px;
 	}
 
 	&__hint {
-		max-width: 80vw;
-		margin-bottom: 26px;
-		font-size: 15px;
+		margin-bottom: 20px;
+		font-size: 16px;
+		font-weight: 600;
 		line-height: 1.4;
-		letter-spacing: 1px;
-		color: rgba(255, 255, 255, 0.8);
+		color: rgba(74, 42, 16, 0.8);
 	}
 
-	&__btn {
-		box-shadow: 0 5px 15px 0 rgba(0, 0, 0, 0.3);
-
-		& + & {
-			margin-top: 16px;
-		}
+	&__btn + &__btn {
+		margin-top: 16px;
 	}
 }
 </style>

@@ -23,32 +23,32 @@ const pending = ref<I_PromoGame | null>(null)
 
 <template>
 	<div class="games" @click="$emits('close')">
-		<div class="container">
-			<div class="games__in" @click.stop="">
-				<div class="games__title">{{ $t('otherGames') }}</div>
-				<div class="games__note">{{ $t('otherGamesNote') }}</div>
+		<div class="games__in" @click.stop="">
+			<div class="games__title">{{ $t('otherGames') }}</div>
+			<div class="games__note">{{ $t('otherGamesNote') }}</div>
 
-				<div class="games__list">
-					<button
-						v-for="game in PROMO_GAMES"
-						:key="game.appId"
-						class="game"
-						@click="pending = game"
-					>
-						<img
-							class="game__icon"
-							:src="promoIcon(game)"
-							:alt="game.title"
-							width="44"
-							height="44"
-						/>
-						<span class="game__title">{{ game.title }}</span>
-						<span class="game__go">{{ $t('promoOpen') }}</span>
-					</button>
-				</div>
-
-				<button class="games__btn" @click="$emits('close')" />
+			<div class="games__list">
+				<button
+					v-for="game in PROMO_GAMES"
+					:key="game.appId"
+					class="game"
+					@click="pending = game"
+				>
+					<img
+						class="game__icon"
+						:src="promoIcon(game)"
+						:alt="game.title"
+						width="44"
+						height="44"
+					/>
+					<span class="game__title">{{ game.title }}</span>
+					<span class="game__go">{{ $t('promoOpen') }}</span>
+				</button>
 			</div>
+
+			<button class="games__btn" :aria-label="'home'" @click="$emits('close')">
+				<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 2.2 11.6h3V20.5h5.2v-5.6h3.2v5.6h5.2v-8.9h3z" stroke="currentColor" stroke-width="1" stroke-linejoin="round" /></svg>
+			</button>
 		</div>
 
 		<ParentGate
@@ -64,78 +64,47 @@ const pending = ref<I_PromoGame | null>(null)
 @use '@/assets/common' as *;
 
 .games {
-	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	z-index: 1100;
-	background: $bgColor;
-	background: $bgGrad;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-
-	.container {
-		width: 100%;
-		max-width: 400px;
-	}
+	@include modal-shade(1100);
 
 	&__in {
-		position: relative;
-		padding: 70px 26px 24px;
-		border-radius: 12px;
-		height: 76vh;
-		width: 100%;
-		box-sizing: border-box;
+		@include modal-card;
+		max-width: 380px;
+		max-height: 80dvh;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		overflow: hidden;
-		background-image: url('@/assets/img/board.png');
-		background-size: 100% 100%;
 	}
 
 	&__title {
-		font-size: 22px;
-		color: #ffdc16;
-		text-align: center;
+		@include modal-title;
 	}
 
 	/* Пометка обязательна: по Families Policy своя реклама — такая же реклама,
 	   и раздел не должен выглядеть частью игрового контента. */
 	&__note {
-		margin: 4px 0 14px;
+		margin: -6px 0 12px;
 		font-size: 11px;
+		font-weight: 700;
 		letter-spacing: 1px;
 		text-transform: uppercase;
-		color: rgba(255, 255, 255, 0.6);
+		color: rgba(74, 42, 16, 0.6);
 		text-align: center;
 	}
 
 	&__list {
-		flex-grow: 1;
 		width: 100%;
+		min-height: 0;
 		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
 		margin-bottom: 16px;
+		padding-bottom: 4px;
 	}
 
 	&__btn {
-		display: block;
-		flex: 0 0 auto;
-		background-image: url('@/assets/img/home.png');
-		background-size: contain;
-		background-repeat: no-repeat;
-		width: 52px;
-		height: 52px;
-		background-color: transparent;
-		border-radius: 10px;
-		border: none;
-		cursor: pointer;
+		@include icon-button;
+		flex-shrink: 0;
 	}
 }
 
@@ -146,15 +115,18 @@ const pending = ref<I_PromoGame | null>(null)
 	width: 100%;
 	box-sizing: border-box;
 	padding: 8px 10px;
-	border: none;
+	background: #fffaf0;
+	border: 2px solid $creamEdge;
 	border-radius: 12px;
+	box-shadow: 0 3px 0 $creamEdge;
 	text-align: left;
 	cursor: pointer;
-	color: #fff;
-	background: rgba(0, 0, 0, 0.35);
+	color: $ink;
+	font-family: $font;
 
 	&:active {
-		background: rgba(0, 0, 0, 0.5);
+		transform: translateY(2px);
+		box-shadow: 0 1px 0 $creamEdge;
 	}
 
 	&__icon {
@@ -162,25 +134,29 @@ const pending = ref<I_PromoGame | null>(null)
 		width: 44px;
 		height: 44px;
 		border-radius: 10px;
-		box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.14);
+		box-shadow: 0 0 0 2px $creamEdge;
 	}
 
 	&__title {
 		flex: 1;
 		min-width: 0;
-		font-size: 14px;
+		font-size: 15px;
+		font-weight: 700;
 		line-height: 1.25;
 	}
 
 	&__go {
 		flex: 0 0 auto;
-		padding: 6px 10px;
+		padding: 6px 10px 7px;
+		border: 2px solid $sunEdge;
 		border-radius: 10px;
+		box-shadow: 0 2px 0 $sunEdge;
 		font-size: 11px;
-		letter-spacing: 0.8px;
+		font-weight: 800;
+		letter-spacing: 0.6px;
 		text-transform: uppercase;
-		color: #241806;
-		background: #ffdc16;
+		color: $ink;
+		background: $sun;
 	}
 }
 </style>

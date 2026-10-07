@@ -1,5 +1,17 @@
 @use '@/assets/common' as *;
 
+/*
+   Основной шрифт с кириллицей и казахскими буквами: декоративные Iomanoid и
+   TheBombSound только латинские, и ru/kk рисовались чужим системным шрифтом
+   вперемешку с ними. Подмножество Latin + Cyrillic, вариативный вес 300–900.
+*/
+@font-face {
+	font-family: 'Rubik';
+	src: url('./assets/fonts/Rubik.woff2') format('woff2');
+	font-weight: 300 900;
+	font-display: block;
+}
+
 @font-face {
 	font-family: Iomanoid;
 	src: url('./assets/fonts/Iomanoid.otf') format('opentype');
@@ -27,7 +39,7 @@ body {
 	overflow-y: auto;
 	background: $bgColor;
 	background: $bgGrad;
-	font-family: TheBombSound, sans-serif;
+	font-family: $font;
 	// background: url('@/assets/img/bg.png') repeat;
 	// background-position: center;
 }
@@ -36,7 +48,7 @@ i,
 span,
 a,
 button {
-	font-family: TheBombSound, sans-serif;
+	font-family: $font;
 }
 
 #app {

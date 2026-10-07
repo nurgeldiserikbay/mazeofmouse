@@ -2,9 +2,10 @@
 	<button
 		ref="button"
 		class="ui-button"
-		:class="{ [`ui-button--${bg}`]: true, [`ui-button--${size}`]: true }"
+		:class="{ [`ui-button--${bg}`]: !!bg, [`ui-button--${size}`]: !!size }"
 		:style="{ width: `${width}px` }"
 	>
+		<span v-if="$slots.icon" class="ui-button__icon"><slot name="icon" /></span>
 		<span ref="label" class="ui-button__label" :style="labelStyle">
 			<slot></slot>
 		</span>
@@ -14,6 +15,17 @@
 <script lang="ts" setup>
 import { nextTick, onMounted, ref } from 'vue'
 
+/**
+ * Кнопка садовой темы.
+ *
+ * Раньше это был png с нарисованной деревянной рамкой: подпись приходилось
+ * вписывать в стекло между накладками, и на ru/kk она туда не помещалась.
+ * Теперь кнопка собрана из CSS (см. chunky() в _common.scss): ширину задаёт
+ * проп, рамка растягивается вместе с ней.
+ *
+ * bg: '' — зелёная главная, 'grey' — кремовая второстепенная (имя осталось от
+ * старых png, чтобы не трогать места вызова).
+ */
 withDefaults(
 	defineProps<{
 		bg?: string
@@ -32,24 +44,11 @@ const label = ref<HTMLElement>()
 const labelStyle = ref<Record<string, string>>({})
 
 /**
- * Доля ширины кнопки, в которую можно писать.
+ * Ужимает подпись, если она не помещается в кнопку.
  *
- * Рамка нарисована прямо в png: по краям деревянные накладки, и текст, занявший
- * всю ширину элемента, ложится поверх них. Стекло между накладками занимает
- * около 80% ширины; 0.72 оставляет буквам воздух, а не упирает их в дерево.
- */
-const INNER_RATIO = 0.72
-
-/**
- * Ужимает подпись, если она не помещается внутрь рамки.
- *
- * Зачем: Iomanoid и TheBombSound — латинские декоративные шрифты без кириллицы,
- * поэтому русские и казахские подписи рисуются подменным шрифтом, который
- * заметно шире. «Рекорды» и «Играть» из-за этого вылезали за края кнопки
- * задолго до появления новых подписей. Подбирать размер каждой подписи руками
- * бессмысленно — языков три, а шрифт подменяется устройством.
- *
- * Только уменьшает: кнопка, где подпись и так помещается, остаётся прежней.
+ * Шрифт теперь с кириллицей, но длина слов на трёх языках разная («Мәзірге
+ * шығу» против «Exit»), а ширина кнопки фиксированная. Только уменьшает:
+ * кнопка, где подпись и так помещается, остаётся прежней.
  */
 function fitLabel() {
 	const btn = button.value
@@ -60,7 +59,13 @@ function fitLabel() {
 
 	nextTick(() => {
 		const width = el.scrollWidth
-		const avail = btn.clientWidth * INNER_RATIO
+		const style = getComputedStyle(btn)
+		const icon = btn.querySelector('.ui-button__icon') as HTMLElement | null
+		const avail =
+			btn.clientWidth -
+			parseFloat(style.paddingLeft) -
+			parseFloat(style.paddingRight) -
+			(icon ? icon.offsetWidth + 10 : 0)
 		if (!width || width <= avail) return
 
 		const base = parseFloat(getComputedStyle(el).fontSize)
@@ -85,36 +90,50 @@ defineExpose({
 </script>
 
 <style lang="scss" scoped>
+@use '@/assets/common' as *;
+
 .ui-button {
-	display: inline-block;
-	width: 150px;
-	aspect-ratio: 2.05;
-	border-radius: 18px;
-	border: none;
-	outline: none;
-	cursor: pointer;
-	font-family: Iomanoid;
-	font-weight: 900;
-	text-transform: uppercase;
-	font-size: 38px;
-	line-height: 1;
-	padding-bottom: 5px;
+	@include chunky($leaf, $leafEdge, 6px, 18px);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	height: 64px;
+	padding: 0 18px 4px;
 	box-sizing: border-box;
-	color: #02020255;
-	background-size: contain;
-	background-color: transparent;
-	background-image: url('@/assets/img/button.png');
+	outline: none;
+	font-family: $font;
+	font-weight: 800;
+	font-size: 28px;
+	line-height: 1;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+	color: #fff;
+	text-shadow: 0 2px 0 $leafEdge;
+	-webkit-tap-highlight-color: transparent;
 
 	&--grey {
-		background-image: url('@/assets/img/button-grey.png');
+		@include chunky($cream, $woodEdge, 5px, 16px);
+		color: $ink;
+		text-shadow: none;
 	}
 
 	&--small {
-		font-size: 24px;
+		height: 50px;
+		font-size: 20px;
 	}
 
-	/* inline-block, чтобы scrollWidth равнялся ширине самой подписи, и чтобы
-	   центрирование текста осталось ровно таким, каким было без обёртки. */
+	&__icon {
+		display: inline-flex;
+		flex-shrink: 0;
+
+		:deep(svg) {
+			display: block;
+			width: 1.1em;
+			height: 1.1em;
+		}
+	}
+
 	&__label {
 		display: inline-block;
 		white-space: nowrap;

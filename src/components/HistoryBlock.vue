@@ -8,36 +8,38 @@ const gameStore = useGameStore()
 
 <template>
 	<div class="history" @click="$emits('close')">
-		<div class="container">
-			<div class="history__in" @click.stop="">
-				<div class="history__title"></div>
-				<div class="histories">
-					<div class="ht-level">
-						<div v-if="gameStore.gameStats?.length" class="ht-level__table">
-							<div class="ht-level__row">
-								<div class="head">{{ $t('name') }}</div>
-								<div class="head">{{ $t('score') }}</div>
-								<div class="head">{{ $t('date') }}</div>
-							</div>
-							<div class="ht-level__row-body">
-								<div
-									v-for="(item, itemInd) in gameStore.gameStats"
-									:key="itemInd"
-									class="ht-level__row"
-								>
-									<div>{{ item.name }}</div>
-									<div class="score">{{ item.score }}</div>
-									<div class="date">
-										{{ `${new Date(item.date).toLocaleDateString()}` }}
-									</div>
-								</div>
-							</div>
+		<div class="history__in" @click.stop="">
+			<div class="history__title">{{ $t('history') }}</div>
+
+			<div v-if="gameStore.gameStats?.length" class="ht">
+				<div class="ht__row ht__row--head">
+					<div>{{ $t('name') }}</div>
+					<div>{{ $t('score') }}</div>
+					<div>{{ $t('date') }}</div>
+				</div>
+				<div class="ht__body">
+					<div
+						v-for="(item, itemInd) in gameStore.gameStats"
+						:key="itemInd"
+						class="ht__row"
+						:class="{ 'ht__row--top': itemInd < 3 }"
+					>
+						<div class="ht__name">
+							<span class="ht__place">{{ itemInd + 1 }}</span>
+							{{ item.name }}
 						</div>
-						<div v-else class="ht-level__record">{{ $t('noRecords') }}</div>
+						<div class="ht__score">{{ item.score }}</div>
+						<div class="ht__date">
+							{{ new Date(item.date).toLocaleDateString() }}
+						</div>
 					</div>
 				</div>
-				<button class="history__btn" @click="$emits('close')" />
 			</div>
+			<div v-else class="ht__empty">{{ $t('noRecords') }}</div>
+
+			<button class="history__btn" :aria-label="'home'" @click="$emits('close')">
+				<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 2.2 11.6h3V20.5h5.2v-5.6h3.2v5.6h5.2v-8.9h3z" stroke="currentColor" stroke-width="1" stroke-linejoin="round" /></svg>
+			</button>
 		</div>
 	</div>
 </template>
@@ -46,150 +48,117 @@ const gameStore = useGameStore()
 @use '@/assets/common' as *;
 
 .history {
-	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	z-index: 1000;
-	background: $bgColor;
-	background: $bgGrad;
-	box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.4),
-		inset 0px -2px 4px rgba(255, 255, 255, 0.2);
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-
-	.container {
-		width: 100%;
-		max-width: 400px;
-	}
+	@include modal-shade(1000);
 
 	&__in {
-		position: relative;
-		padding: 100px 48px 68px;
-		border-radius: 12px;
-		height: 60vh;
-		width: 100%;
-		box-sizing: border-box;
+		@include modal-card;
+		max-width: 380px;
+		max-height: 78dvh;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		overflow: hidden;
-		margin-bottom: 100px;
-		background-image: url('@/assets/img/board.png');
-		background-size: 100% 100%;
+		gap: 14px;
 	}
 
 	&__title {
-		position: absolute;
-		top: 2%;
-		font-size: 22px;
-		background-image: url('@/assets/img/history.png');
-		background-size: contain;
-		background-repeat: no-repeat;
-		width: 30px;
-		height: 30px;
+		@include modal-title;
 	}
 
 	&__btn {
-		display: block;
-		background-image: url('@/assets/img/home.png');
-		background-size: contain;
-		background-repeat: no-repeat;
-		width: 52px;
-		height: 52px;
-		background-color: transparent;
-		border-radius: 10px;
-		border: none;
-		cursor: pointer;
+		@include icon-button;
+		flex-shrink: 0;
 	}
 }
 
-.histories {
-	position: relative;
+.ht {
 	width: 100%;
-	height: 60%;
-	margin-bottom: 28px;
-	flex-grow: 1;
+	min-height: 0;
 	display: flex;
 	flex-direction: column;
-	justify-content: space-between;
-	overflow: hidden;
 
-	&__item {
-		width: 100%;
-		opacity: 1;
-		transition: 0.3s linear;
-
-		&--hide {
-			opacity: 0;
-			pointer-events: none;
-		}
-
-		&--active {
-			position: absolute;
-			top: 0;
-			left: 0;
-			right: 0;
-			bottom: 0;
-		}
-
-		&:last-child {
-			margin-bottom: 0;
-		}
-	}
-}
-
-.ht-level {
-	flex-grow: 1;
-	display: flex;
-	flex-direction: column;
-	overflow: hidden;
-
-	&__table {
-		flex-grow: 1;
+	&__body {
+		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
+		gap: 6px;
+		padding-bottom: 4px;
 	}
 
 	&__row {
 		display: grid;
-		grid-template-columns: 2fr 2fr 3fr;
-		gap: 5px;
+		grid-template-columns: minmax(0, 1fr) 54px 92px;
+		gap: 6px;
 		align-items: center;
-		margin-bottom: 2px;
-		padding: 0 5px;
+		padding: 8px 10px;
+		background: #fffaf0;
+		border: 2px solid $creamEdge;
+		border-radius: 10px;
+		box-shadow: 0 2px 0 $creamEdge;
+		font-size: 15px;
 
-		&:last-child {
-			margin-bottom: 0;
+		&--head {
+			background: none;
+			border: none;
+			box-shadow: none;
+			padding: 0 12px 6px;
+			font-size: 12px;
+			font-weight: 700;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+			color: rgba(74, 42, 16, 0.6);
+
+			div:not(:first-child) {
+				text-align: center;
+			}
+		}
+
+		&--top .ht__place {
+			background: $sun;
+			border-color: $sunEdge;
 		}
 	}
 
-	&__row-body {
-		flex-grow: 1;
-		overflow-y: auto;
+	&__name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-weight: 700;
+	}
+
+	&__place {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
+		margin-right: 6px;
+		border: 2px solid $creamEdge;
+		border-radius: 50%;
+		background: $cream;
+		font-size: 12px;
+		font-weight: 800;
+		vertical-align: middle;
+	}
+
+	&__score {
+		text-align: center;
+		font-size: 18px;
+		font-weight: 900;
+		color: $leafEdge;
+	}
+
+	&__date {
+		text-align: center;
+		font-size: 13px;
+		color: rgba(74, 42, 16, 0.7);
+	}
+
+	&__empty {
+		padding: 20px 0;
 		font-size: 16px;
-		font-weight: 500;
-	}
-
-	&__record {
-		text-align: center;
-	}
-
-	.head {
-		text-align: center;
 		font-weight: 600;
-	}
-
-	.score {
-		text-align: center;
-	}
-
-	.date {
-		font-size: 16px;
-		text-align: center;
+		color: rgba(74, 42, 16, 0.7);
 	}
 }
 </style>

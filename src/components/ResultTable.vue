@@ -31,15 +31,16 @@ function generateCustomName() {
 
 <template>
 	<div class="result">
-		<div class="container">
-			<div class="result__in">
-				<div class="result__title">{{ $t('yourScore') }}</div>
-				<div class="result__table">
-					<div>{{ name }}</div>
-					<div>{{ result }}</div>
-				</div>
-				<button class="result__btn" @click="$emits('close')" />
+		<div class="result__in">
+			<div class="result__title">{{ $t('yourScore') }}</div>
+			<img class="result__art" src="@/assets/img/v2/cat-caught.webp" alt="" />
+			<div class="result__row">
+				<span class="result__name">{{ name }}</span>
+				<span class="result__score">{{ result }}</span>
 			</div>
+			<button class="result__btn" :aria-label="'home'" @click="$emits('close')">
+				<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.2 2.2 11.6h3V20.5h5.2v-5.6h3.2v5.6h5.2v-8.9h3z" stroke="currentColor" stroke-width="1" stroke-linejoin="round" /></svg>
+			</button>
 		</div>
 	</div>
 </template>
@@ -47,78 +48,60 @@ function generateCustomName() {
 <style lang="scss" scoped>
 @use '@/assets/common' as *;
 
+/* Проигрыш: кот поймал мышь — смешно, а не страшно; счёт крупно. */
 .result {
-	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	z-index: 1000;
-	background: $bgColor;
-	background: $bgGrad;
-	box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.4),
-		inset 0px -2px 4px rgba(255, 255, 255, 0.2);
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-
-	.container {
-		width: 100%;
-		max-width: 350px;
-	}
+	@include modal-shade(1000);
 
 	&__in {
-		position: relative;
-		padding: 65px 28px 68px;
-		border-radius: 12px;
-		height: 60vh;
-		width: 100%;
-		box-sizing: border-box;
+		@include modal-card;
+		max-width: 340px;
 		display: flex;
-		justify-content: space-around;
 		flex-direction: column;
 		align-items: center;
-		overflow: hidden;
-		margin-bottom: 100px;
-		background-image: url('@/assets/img/board.png');
-		background-size: 100% 100%;
+		gap: 14px;
 	}
 
 	&__title {
-		position: absolute;
-		top: 3%;
-		font-size: 22px;
+		@include modal-title;
 	}
 
-	&__table {
-		width: 70%;
+	&__art {
+		width: 78%;
+		margin-top: -4px;
+	}
+
+	&__row {
+		width: 100%;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		flex-grow: 1;
-		padding-bottom: 30px;
-		letter-spacing: 3px;
+		gap: 12px;
+		padding: 10px 16px;
+		box-sizing: border-box;
+		background: #fffaf0;
+		border: 2px solid $creamEdge;
+		border-radius: 12px;
+		box-shadow: 0 3px 0 $creamEdge;
+	}
 
-		div {
-			&:last-child {
-				font-size: 25px;
-			}
-		}
+	&__name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: 18px;
+		font-weight: 700;
+	}
+
+	&__score {
+		font-size: 34px;
+		font-weight: 900;
+		@include outlined($sun, $woodEdge);
 	}
 
 	&__btn {
-		flex-shrink: 0;
-		display: block;
-		background-image: url('@/assets/img/home.png');
-		background-size: contain;
-		background-repeat: no-repeat;
-		width: 66px;
-		height: 66px;
-		background-color: transparent;
-		border-radius: 10px;
-		border: none;
-		cursor: pointer;
+		@include icon-button;
+		margin-top: 4px;
 	}
 }
 </style>

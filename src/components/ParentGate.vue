@@ -85,80 +85,71 @@ function onInput(event: Event) {
 </template>
 
 <style lang="scss" scoped>
+@use '@/assets/common' as *;
+
 .gate {
-	position: fixed;
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	z-index: 1200;
-	background: rgba(12, 24, 8, 0.85);
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	padding: 20px;
-	box-sizing: border-box;
+	@include modal-shade(1200);
+	background: rgba(18, 40, 8, 0.8);
 
 	&__in {
-		width: 100%;
+		@include modal-card;
 		max-width: 340px;
-		box-sizing: border-box;
-		padding: 60px 30px 40px;
-		border-radius: 12px;
-		background-image: url('@/assets/img/board.png');
-		background-size: 100% 100%;
 		text-align: center;
-		color: #fff;
 	}
 
 	&__title {
-		font-size: 20px;
-		color: #ffdc16;
-		margin-bottom: 6px;
+		@include modal-title;
 	}
 
 	&__hint {
-		font-size: 13px;
+		font-size: 14px;
+		font-weight: 500;
 		line-height: 1.4;
-		color: rgba(255, 255, 255, 0.75);
-		margin-bottom: 18px;
+		color: rgba(74, 42, 16, 0.8);
+		margin-bottom: 16px;
 	}
 
 	&__task {
-		font-size: 30px;
-		letter-spacing: 2px;
+		font-size: 34px;
+		font-weight: 900;
+		letter-spacing: 1px;
 		margin-bottom: 12px;
+		color: $ink;
 	}
 
 	&__input {
-		width: 120px;
+		width: 130px;
 		padding: 10px;
-		border-radius: 10px;
-		border: 2px solid rgba(0, 0, 0, 0.3);
+		border: 2px solid $woodEdge;
+		border-radius: 12px;
 		outline: none;
-		font-family: inherit;
-		font-size: 22px;
+		background: #fffaf0;
+		box-shadow: inset 0 3px 0 rgba(90, 50, 15, 0.15);
+		font-family: $font;
+		font-size: 24px;
+		font-weight: 800;
 		text-align: center;
-		background: #f4e6c3;
-		color: #241806;
+		color: $ink;
 
 		&--wrong {
 			border-color: #c0392b;
+			background: #ffe9e4;
 		}
 	}
 
 	&__go {
 		display: block;
 		margin: 18px auto 0;
-		padding: 12px 14px;
-		border-radius: 12px;
-		font-size: 14px;
+		padding: 12px 14px 13px;
+		@include chunky($sun, $sunEdge, 4px, 12px);
+		font-size: 15px;
+		font-weight: 800;
 		text-decoration: none;
-		color: #241806;
-		background: #ffdc16;
+		color: $ink;
 
 		&--off {
-			opacity: 0.35;
+			opacity: 0.4;
+			pointer-events: none;
 		}
 	}
 
@@ -166,11 +157,11 @@ function onInput(event: Event) {
 		margin-top: 14px;
 		padding: 8px 12px;
 		border: none;
-		border-radius: 10px;
 		background: transparent;
-		color: rgba(255, 255, 255, 0.7);
-		font-family: inherit;
-		font-size: 13px;
+		font-family: $font;
+		font-size: 14px;
+		font-weight: 700;
+		color: rgba(74, 42, 16, 0.7);
 		cursor: pointer;
 	}
 }
