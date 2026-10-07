@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { onBeforeUnmount, onMounted, ref, computed, watch } from 'vue'
 import { useAudio } from '@/composables/useAudio'
+import { STAR_MARKS } from '@/pages/helpers'
 
 
 const $props = withDefaults(
@@ -35,6 +36,10 @@ const getTimeValue = computed(() => {
 const getWidth = computed(() => {
 	return `${(date.value / getTimeValue.value) * 100}%`
 })
+
+/** Доля оставшегося времени — по ней страница считает звёзды за уровень. */
+const fraction = computed(() => date.value / getTimeValue.value)
+defineExpose({ fraction })
 
 watch(
 	() => $props.level,
@@ -92,6 +97,16 @@ function clearTimer() {
 	<div class="time">
 		<div class="time__track">
 			<div class="time__in" :style="{ width: getWidth }"></div>
+			<!-- Отметки звёзд: пока полоса правее отметки, звезда ещё твоя. -->
+			<span
+				v-for="mark in STAR_MARKS"
+				:key="mark"
+				class="time__star"
+				:class="{ lost: fraction < mark }"
+				:style="{ left: `${mark * 100}%` }"
+			>
+				<svg viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z" /></svg>
+			</span>
 		</div>
 		<img v-if="showCat" class="time__cat" src="@/assets/img/v2/token-cat.webp" alt="cat" />
 	</div>
@@ -109,6 +124,7 @@ function clearTimer() {
 	padding-right: 26px;
 
 	&__track {
+		position: relative;
 		@include wood(14px);
 		height: 26px;
 		padding: 4px;
@@ -121,6 +137,33 @@ function clearTimer() {
 		background: linear-gradient(180deg, #8be04f, #4fae22);
 		box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.15);
 		transition: width 0.1s linear;
+	}
+
+	&__star {
+		position: absolute;
+		top: 50%;
+		width: 22px;
+		height: 22px;
+		transform: translate(-50%, -50%);
+		transition: transform 0.2s, opacity 0.2s;
+
+		svg {
+			width: 100%;
+			height: 100%;
+			fill: $sun;
+			stroke: $woodEdge;
+			stroke-width: 1.8;
+			stroke-linejoin: round;
+		}
+
+		&.lost {
+			opacity: 0.45;
+			transform: translate(-50%, -50%) scale(0.8);
+
+			svg {
+				fill: #8a6a4a;
+			}
+		}
 	}
 
 	&__cat {

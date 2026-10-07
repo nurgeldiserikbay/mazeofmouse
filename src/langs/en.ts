@@ -27,4 +27,10 @@ export default {
 	// HUD игрового экрана.
 	best: 'Best {score}',
 	dirsHint: 'Tap the arrows: the mouse turns at the next fork',
+	// Главы и «ещё попытка» за рекламу.
+	continueTitle: 'One more try?',
+	continueAd: 'Continue',
+	continueNo: 'No, thanks',
+	adBadge: 'Ad',
+	chapterDone: 'Chapter {n} complete!',
 }

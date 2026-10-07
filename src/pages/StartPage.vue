@@ -121,8 +121,12 @@ onBeforeUnmount(() => {
 				{{ $t('start') }}
 			</UiButton>
 
-			<div v-if="canContinue" class="start-page__hint">
-				{{ $t('continueFrom', { level: continueLevel }) }}
+			<div v-if="canContinue || gameStore.totalStars" class="start-page__hint">
+				<span v-if="canContinue">{{ $t('continueFrom', { level: continueLevel }) }}</span>
+				<span v-if="gameStore.totalStars" class="start-page__stars">
+					<svg viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z" /></svg>
+					{{ gameStore.totalStars }}
+				</span>
 			</div>
 
 			<!-- Начать сначала можно только когда есть что терять. -->
@@ -319,6 +323,29 @@ onBeforeUnmount(() => {
 		letter-spacing: 0.5px;
 		color: $cream;
 		text-align: center;
+	}
+}
+
+.start-page__hint {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+/* Сколько звёзд собрано за все лабиринты. */
+.start-page__stars {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	color: $sun;
+
+	svg {
+		width: 16px;
+		height: 16px;
+		fill: $sun;
+		stroke: $woodEdge;
+		stroke-width: 1.6;
+		stroke-linejoin: round;
 	}
 }
 

@@ -6,6 +6,7 @@ import {
 	AdMobBannerSize,
 	BannerAdOptions,
 	InterstitialAdPluginEvents,
+	RewardAdOptions,
 	AdLoadInfo,
 	AdOptions,
 	MaxAdContentRating,
@@ -37,8 +38,9 @@ const AdMobInitializationOptions = {
 //    событием возврата приложения на передний план и таймером.
 const INTERSTITIALS_ENABLED: boolean = true
 
-// Минимальный интервал между показами интерстишла (частотный кап).
-const INTERSTITIAL_MIN_INTERVAL_MS = 60_000
+// Минимальный интервал между показами интерстишла (частотный кап). Было 60 с:
+// при уровне в 30–60 с это выходило почти «объявление на каждый лабиринт».
+const INTERSTITIAL_MIN_INTERVAL_MS = 100_000
 
 // Страховка от «зависшего» показа: если событие Dismissed по какой-то причине не
 // пришло и приложение не сообщило о возврате на передний план, блокировка
@@ -56,6 +58,19 @@ const BANNER_RESERVE_HEIGHT = 56
 
 const BANNER_AD_ID = 'ca-app-pub-9702825788968948/7982858451'
 const INTERSTITIAL_AD_ID = 'ca-app-pub-9702825788968948/9323860288'
+
+/**
+ * Реклама за награду: «продолжить, когда кот поймал». Её игрок смотрит сам,
+ * по кнопке, поэтому она не мешает так, как полноэкранная.
+ *
+ * Боевого блока пока нет — его заводит владелец в консоли AdMob. До этого в
+ * отладке работает тестовый блок Google, а в релизе предложение «продолжить»
+ * просто не показывается (см. rewardedAvailable).
+ */
+const REWARDED_AD_ID_PROD = '' // TODO: боевой ID блока Rewarded из AdMob
+const REWARDED_AD_ID = import.meta.env.DEV
+	? 'ca-app-pub-3940256099942544/5224354917'
+	: REWARDED_AD_ID_PROD
 
 class Admob {
 	// Слушатели регистрируются один раз за жизненный цикл приложения,
@@ -75,6 +90,10 @@ class Admob {
 	// Состояние предзагруженного объявления.
 	private interstitialReady = false
 	private interstitialLoading = false
+	// Предзагруженная реклама за награду.
+	private rewardedReady = false
+	private rewardedLoading = false
+	private rewardedShowing = false
 	// Баннер показан — только в этом случае его имеет смысл возобновлять.
 	private bannerVisible = false
 	// Системные панели возвращены ради показа объявления и ждут обратной уборки.
@@ -196,6 +215,7 @@ class Admob {
 		// Первое объявление греем сразу после инициализации, чтобы к первой точке
 		// показа оно уже было готово и игре не пришлось ничего ждать.
 		void this.preloadInterstitial()
+		void this.preloadRewarded()
 	}
 
 	// Регистрируем все слушатели ровно один раз.
@@ -473,6 +493,61 @@ class Admob {
 		} catch (error) {
 			console.log(error)
 			this.handleInterstitialClosed()
+		}
+	}
+
+	/** Есть ли что предложить игроку: блок заведён и объявление уже загружено. */
+	get rewardedAvailable() {
+		return !!REWARDED_AD_ID && this.initialized && this.rewardedReady
+	}
+
+	async preloadRewarded() {
+		if (!REWARDED_AD_ID || !this.initialized) return
+		if (this.rewardedReady || this.rewardedLoading) return
+
+		this.rewardedLoading = true
+		try {
+			const options: RewardAdOptions = {
+				adId: REWARDED_AD_ID,
+				isTesting: import.meta.env.VITE_APP_MODE === 'TEST',
+				npa: true,
+				// immersiveMode не выставляем — та же причина, что у интерстишла.
+			}
+			await AdMob.prepareRewardVideoAd(options)
+			this.rewardedReady = true
+		} catch (error) {
+			console.log(error)
+			this.rewardedReady = false
+		} finally {
+			this.rewardedLoading = false
+		}
+	}
+
+	/**
+	 * Показ рекламы за награду. true — игрок досмотрел и награда положена.
+	 *
+	 * Промис плагина разрешается наградой, когда SDK засчитал просмотр, и
+	 * отклоняется, если объявление закрыли раньше или оно не показалось.
+	 * Системные панели на время показа возвращаются, как у интерстишла.
+	 */
+	async rewarded(): Promise<boolean> {
+		if (!this.rewardedAvailable || this.rewardedShowing) return false
+
+		this.rewardedReady = false
+		this.rewardedShowing = true
+		await this.showSystemBars()
+
+		try {
+			const reward = await AdMob.showRewardVideoAd()
+			return !!reward
+		} catch (error) {
+			console.log(error)
+			return false
+		} finally {
+			this.rewardedShowing = false
+			this.barsShownForAd = false
+			void this.restoreImmersiveMode()
+			void this.preloadRewarded()
 		}
 	}
 }

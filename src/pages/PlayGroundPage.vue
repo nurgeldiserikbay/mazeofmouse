@@ -18,8 +18,15 @@ import OtherGames from '@/components/OtherGames.vue'
 import ConfirmExit from '@/components/ConfirmExit.vue'
 
 import { getMaze, isCross, nextPost } from './game'
-import { getGridSizeByLevel } from './helpers'
+import {
+	getGridSizeByLevel,
+	CHAPTER_SIZE,
+	chapterOf,
+	checkpointOf,
+	starsFor,
+} from './helpers'
 import { TUTORIAL } from './tutorial'
+import { session, QUIET_START_MAZES } from '@/utils/session'
 
 let timerID: ReturnType<typeof setInterval>
 let timerDirID: ReturnType<typeof setInterval>
@@ -174,6 +181,33 @@ function arrowDisabled(d: string) {
 		return true
 	}
 	return coachExpect.value !== null && coachExpect.value !== d
+}
+
+/**
+ * Таймер пересоздаётся ключом на каждый новый заход в лабиринт: по смене
+ * уровня он перезапускался и раньше, но «продолжить» и выход из обучения
+ * уровень не меняют.
+ */
+const timerRef = ref<InstanceType<typeof TimerItem>>()
+const roundKey = ref(0)
+
+/** Звёзды за только что пройденный лабиринт и «глава закончена». */
+const wonStars = ref(0)
+const chapterDone = ref(false)
+
+/** Лабиринт внутри главы (0..CHAPTER_SIZE-1) — для полоски прогресса в HUD. */
+const chapterStep = computed(() => level.value % CHAPTER_SIZE)
+
+/**
+ * Предложение «ещё попытка» после поимки. Один раз на лабиринт, только когда
+ * объявление за награду есть (на Android) — без него кнопка обещала бы то,
+ * чего не будет. В вебе рекламы нет вовсе, там попытка просто даётся.
+ */
+const offerContinue = ref(false)
+const continuedThisMaze = ref(false)
+function canOfferContinue() {
+	if (continuedThisMaze.value || tutorial.value) return false
+	return Capacitor.getPlatform() !== 'android' || Admob.rewardedAvailable
 }
 
 // Рекорд для HUD. Счёт забега — число пройденных лабиринтов (см. save).
@@ -411,19 +445,13 @@ function animCatEnd() {
 	isCatch.value = true
 	audioCont.playAudio('catWin')
 
-	// Проигрыш завершает забег: сохранённый прогресс сбрасывается, чтобы каждый
-	// следующий старт начинался с первого лабиринта. Само level.value здесь не
-	// трогаем — достигнутый уровень ещё нужен как результат для таблицы и
-	// рекордов, а watch на level после проигрыша уже не сработает.
-	gameStore.currentLevel = 0
-
+	// Прогресс здесь не трогаем: игрок может взять ещё попытку. Откат к началу
+	// главы — только когда он от неё отказался (см. save).
 	catAnimId = setTimeout(() => {
 		audioCont.stop('gameMusic')
 		isEnd.value = true
 		isWin.value = false
-
-		// Таблица результата уже показана — реклама поверх неё ничего не ждёт.
-		showInterstitial()
+		offerContinue.value = canOfferContinue()
 	}, 1500)
 }
 
@@ -435,6 +463,15 @@ function checkWin() {
 		isEnd.value = true
 		isWin.value = true
 		audioCont.playAudio('mouseWin')
+
+		if (!tutorial.value) {
+			wonStars.value = starsFor(timerRef.value?.fraction ?? 0)
+			gameStore.setStars(level.value, wonStars.value)
+			session.mazesWon += 1
+			chapterDone.value = (level.value + 1) % CHAPTER_SIZE === 0
+		} else {
+			wonStars.value = 3
+		}
 		audioCont.stop('gameMusic')
 
 		// Рекламы здесь нет намеренно: сначала игрок видит свой результат.
@@ -522,11 +559,46 @@ function removeAnswer(index: number) {
 	dirs.value.splice(index, 1)
 }
 
+/**
+ * Игрок закрыл таблицу результата после проигрыша.
+ *
+ * Проигрыш откатывает к началу главы, а не к первому лабиринту: раньше один
+ * промах на 15-м уровне стоил всего пути, и дети на этом бросали игру.
+ * Полноэкранная реклама — здесь, на уходе в меню, а не поверх счёта сразу
+ * после поимки: это естественная пауза, а не наказание за проигрыш.
+ */
 function save() {
 	gameStore.recordGameStat(level.value)
+	gameStore.currentLevel = checkpointOf(level.value)
+	showInterstitial()
 	nextTick(() => {
 		pageStore.toBackLink()
 	})
+}
+
+/** «Ещё попытка»: тот же лабиринт заново, с полным временем. */
+async function continueRun() {
+	if (advancing.value) return
+	advancing.value = true
+
+	let granted = true
+	if (Capacitor.getPlatform() === 'android') {
+		adShowing.value = true
+		granted = await Admob.rewarded()
+		adShowing.value = false
+	}
+	advancing.value = false
+
+	offerContinue.value = false
+	if (!granted) return
+
+	continuedThisMaze.value = true
+	restartRound()
+}
+
+function declineContinue() {
+	offerContinue.value = false
+	audioCont.playAudio('click')
 }
 
 /**
@@ -554,6 +626,21 @@ function reset() {
 	catDirs.value = []
 	isEnd.value = false
 	isWin.value = null
+	isCatch.value = false
+	offerContinue.value = false
+	wonStars.value = 0
+	chapterDone.value = false
+}
+
+/** Очистить таймеры и начать текущий лабиринт сначала. */
+function restartRound() {
+	if (timerID) clearTimeout(timerID)
+	if (timerCatID) clearTimeout(timerCatID)
+	if (timerDirID) clearTimeout(timerDirID)
+	if (catAnimId) clearTimeout(catAnimId)
+	reset()
+	roundKey.value += 1
+	audioCont.play('gameMusic')
 }
 
 /**
@@ -562,6 +649,8 @@ function reset() {
  * заход новичка, так что «заработал» не значит «покажется».
  */
 function earnsInterstitial() {
+	// Первые лабиринты сессии — без полноэкранной рекламы: игрок только сел.
+	if (session.mazesWon <= QUIET_START_MAZES) return false
 	return (level.value + 1) % 4 === 0
 }
 
@@ -612,6 +701,8 @@ function nextRound(levelUp = true) {
 	isStarted.value = false
 
 	if (levelUp) level.value += 1
+	continuedThisMaze.value = false
+	roundKey.value += 1
 	drawMaze()
 	isStarted.value = true
 	audioCont.play('gameMusic')
@@ -627,6 +718,8 @@ function nextRound(levelUp = true) {
 		<div class="page__head">
 			<BackLink confirm @request="exitAsk = true" />
 			<TimerItem
+				ref="timerRef"
+				:key="roundKey"
 				class="time"
 				:level="level"
 				:show-cat="!catRunned"
@@ -646,6 +739,14 @@ function nextRound(levelUp = true) {
 			</div>
 			<div v-else class="hud__chip hud__chip--level">
 				{{ $t('continueFrom', { level: level + 1 }) }}
+				<!-- Прогресс главы: до конца главы и до новой контрольной точки. -->
+				<span class="hud__pips">
+					<i
+						v-for="i in CHAPTER_SIZE"
+						:key="i"
+						:class="{ done: i - 1 < chapterStep, now: i - 1 === chapterStep }"
+					></i>
+				</span>
 			</div>
 			<div v-if="bestScore > 0 && !tutorial" class="hud__chip hud__chip--best">
 				<svg viewBox="0 0 24 24"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>
@@ -794,15 +895,18 @@ function nextRound(levelUp = true) {
 					<img src="@/assets/img/v2/token-cat.webp" alt="" />
 				</div>
 			</div>
-			<div v-else-if="tutorial" class="next-modal__stars">
-				<svg viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z" /></svg>
-				<svg viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z" /></svg>
-				<svg viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z" /></svg>
-			</div>
-			<div v-else class="next-modal__level">
-				<div>{{ $t('nextMaze') }}</div>
-				<div>{{ level + 2 }}</div>
-			</div>
+			<template v-else>
+				<div class="next-modal__stars">
+					<span v-for="i in 3" :key="i" :class="{ off: i > wonStars }"><svg viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z" /></svg></span>
+				</div>
+				<div v-if="!tutorial" class="next-modal__level">
+					<div v-if="chapterDone" class="next-modal__chapter">
+						{{ $t('chapterDone', { n: chapterOf(level) + 1 }) }}
+					</div>
+					<div class="next-modal__title">{{ $t('nextMaze') }}</div>
+					<div class="next-modal__num">{{ level + 2 }}</div>
+				</div>
+			</template>
 			<UiButton
 				ref="button"
 				class="next-modal__btn"
@@ -815,8 +919,24 @@ function nextRound(levelUp = true) {
 			</UiButton>
 		</div>
 
+		<!-- Ещё попытка после поимки: по рекламе за награду, один раз на лабиринт. -->
+		<div v-if="offerContinue" class="again">
+			<div class="again__in">
+				<div class="again__title">{{ $t('continueTitle') }}</div>
+				<img class="again__art" src="@/assets/img/v2/cat-caught.webp" alt="" />
+				<UiButton :width="250" @click="continueRun">
+					<template #icon>
+						<svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5" fill="currentColor" /><path d="M16.5 10.5 21.5 7.5v9l-5-3z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" /></svg>
+					</template>
+					{{ $t('continueAd') }}
+				</UiButton>
+				<span class="again__badge">{{ $t('adBadge') }}</span>
+				<button class="again__no" @click="declineContinue">{{ $t('continueNo') }}</button>
+			</div>
+		</div>
+
 		<ResultTable
-			v-if="isCatch && isEnd"
+			v-if="isCatch && isEnd && !offerContinue"
 			:result="level"
 			@close="save(), audioCont.playAudio('click')"
 		/>
@@ -904,7 +1024,16 @@ function nextRound(levelUp = true) {
 		white-space: nowrap;
 
 		&--level {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 4px;
 			font-size: 18px;
+		}
+
+		/* Ход по главе: пройденные, текущий, оставшиеся. */
+		.hud__pips {
+			display: flex;
+			gap: 3px;
 		}
 
 		/* Прогресс обучения точками: без слов, на любом языке. */
@@ -1414,8 +1543,9 @@ function nextRound(levelUp = true) {
 		line-height: 1.1;
 		margin-bottom: 22px;
 
-		div {
-			&:first-child {
+		.next-modal__title,
+		.next-modal__num {
+			&.next-modal__title {
 				font-size: 30px;
 				font-weight: 800;
 				text-transform: uppercase;
@@ -1423,7 +1553,7 @@ function nextRound(levelUp = true) {
 				margin-bottom: 8px;
 			}
 
-			&:last-child {
+			&.next-modal__num {
 				font-size: 64px;
 				font-weight: 900;
 				@include outlined($sun, $woodEdge);
@@ -1485,6 +1615,21 @@ function nextRound(levelUp = true) {
 	}
 }
 
+.hud__pips i {
+	width: 9px;
+	height: 6px;
+	border-radius: 3px;
+	background: rgba(0, 0, 0, 0.28);
+
+	&.done {
+		background: $sun;
+	}
+
+	&.now {
+		background: #fff;
+	}
+}
+
 .next-modal__stars {
 	display: flex;
 	align-items: flex-end;
@@ -1502,14 +1647,78 @@ function nextRound(levelUp = true) {
 		animation: starPop 0.5s ease-out both;
 	}
 
-	svg:nth-child(2) {
+	span {
+		display: flex;
+	}
+
+	span:nth-child(2) svg {
 		width: 72px;
 		height: 72px;
 		animation-delay: 0.15s;
 	}
 
-	svg:nth-child(3) {
+	span:nth-child(3) svg {
 		animation-delay: 0.3s;
+	}
+
+	/* Незаработанная звезда — пустая, чтобы было видно, что можно лучше. */
+	span.off svg {
+		fill: rgba(255, 255, 255, 0.25);
+		filter: none;
+	}
+}
+
+.next-modal__chapter {
+	margin-bottom: 10px;
+	padding: 6px 14px 8px;
+	@include wood(12px);
+	font-size: 18px !important;
+	font-weight: 800;
+	text-transform: uppercase;
+	color: $sun !important;
+	text-shadow: none !important;
+}
+
+.again {
+	@include modal-shade(1000);
+
+	&__in {
+		@include modal-card;
+		max-width: 340px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	&__title {
+		@include modal-title;
+	}
+
+	&__art {
+		width: 76%;
+		margin-bottom: 14px;
+	}
+
+	/* Families Policy: кнопка ведёт на рекламу — это должно быть видно. */
+	&__badge {
+		margin-top: 12px;
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 1px;
+		text-transform: uppercase;
+		color: rgba(74, 42, 16, 0.55);
+	}
+
+	&__no {
+		margin-top: 8px;
+		padding: 8px 12px;
+		border: none;
+		background: transparent;
+		font-family: $font;
+		font-size: 15px;
+		font-weight: 700;
+		color: rgba(74, 42, 16, 0.75);
+		cursor: pointer;
 	}
 }
 

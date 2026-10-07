@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { Preferences } from '@capacitor/preferences'
 
@@ -15,12 +15,26 @@ export const useGameStore = defineStore('GameStore', () => {
 	 * «Продолжить» в меню работало и после закрытия приложения, а не только
 	 * пока игра висит в памяти.
 	 *
-	 * Ноль означает «продолжать нечего»: сюда его ставит проигрыш (см.
-	 * animCatEnd) и начало новой игры. Забег обрывается только этими двумя
-	 * способами — выход в меню прогресс сохраняет.
+	 * Ноль означает «продолжать нечего»: его ставит начало новой игры.
+	 * Проигрыш откатывает не к нулю, а к началу главы (checkpointOf), выход в
+	 * меню прогресс сохраняет.
 	 */
 	const currentLevel = ref<number>(0)
 	const tutorialPassed = ref<boolean>(false)
+
+	/**
+	 * Лучшие звёзды по уровням: { номер уровня: 1..3 }. Звёзды даются за
+	 * оставшееся время и копятся — это цель помимо «дойти дальше».
+	 */
+	const stars = ref<Record<number, number>>({})
+	const totalStars = computed(() =>
+		Object.values(stars.value).reduce((sum, n) => sum + n, 0)
+	)
+	function setStars(level: number, count: number) {
+		if ((stars.value[level] ?? 0) < count) {
+			stars.value = { ...stars.value, [level]: count }
+		}
+	}
 
 	const moves = ref<Direction[]>([])
 	const planningMs = ref(0)
@@ -79,6 +93,7 @@ export const useGameStore = defineStore('GameStore', () => {
 			// окна имени, и без этого после перезапуска в таблицу результата
 			// попадало случайное имя вместо имени игрока.
 			name: name.value,
+			stars: stars.value,
 		}),
 		async (data) => {
 			await Preferences.set({
@@ -98,6 +113,10 @@ export const useGameStore = defineStore('GameStore', () => {
 					tutorialPassed: boolean
 					currentLevel?: number
 					name?: string
+					stars?: Record<number, number>
+				}
+				if (parsed.stars && typeof parsed.stars === 'object') {
+					stars.value = parsed.stars
 				}
 				if (typeof parsed.name === 'string' && parsed.name) {
 					name.value = parsed.name
@@ -128,6 +147,9 @@ export const useGameStore = defineStore('GameStore', () => {
 
 		currentLevel,
 		tutorialPassed,
+		stars,
+		totalStars,
+		setStars,
 		moves,
 		planningMs,
 		runningMs,
