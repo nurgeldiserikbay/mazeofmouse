@@ -19,6 +19,7 @@ import ConfirmExit from '@/components/ConfirmExit.vue'
 
 import { getMaze, isCross, nextPost } from './game'
 import { getGridSizeByLevel } from './helpers'
+import { TUTORIAL } from './tutorial'
 
 let timerID: ReturnType<typeof setInterval>
 let timerDirID: ReturnType<typeof setInterval>
@@ -30,7 +31,36 @@ const audioCont = useAudio()
 
 const mazeRef = ref()
 const level = ref(gameStore.currentLevel)
+
+/**
+ * Шаг обучения или null, если играем по-настоящему.
+ *
+ * Обучение видит только новичок: кто уже играл (есть рекорды) или вернулся к
+ * незаконченному забегу, правило знает. Флаг tutorialPassed на диске раньше
+ * никто не поднимал, поэтому одного его мало — старые игроки увидели бы
+ * обучение заново.
+ */
+const tutorialStep = ref<number | null>(
+	gameStore.tutorialPassed ||
+		gameStore.gameStats.length > 0 ||
+		gameStore.currentLevel > 0
+		? null
+		: 0
+)
+const tutorial = computed(() =>
+	tutorialStep.value === null ? null : TUTORIAL[tutorialStep.value]
+)
+const isLastTutorial = computed(
+	() => tutorialStep.value === TUTORIAL.length - 1
+)
+
 const sizes = computed(() => {
+	if (tutorial.value) {
+		return {
+			rows: tutorial.value.maze.length,
+			cols: tutorial.value.maze[0].length,
+		}
+	}
 	return getGridSizeByLevel(level.value)
 })
 let blockSize = 30
@@ -98,6 +128,54 @@ const exitAsk = ref(false)
 // Сколько поворотов помещается в очередь: три полных ряда панели по 12.
 const MAX_DIRS = 36
 
+/**
+ * Какую кнопку обучение ждёт следующей: стрелку из сценария или 'run'.
+ * Остальные кнопки на это время неактивны — игрок не может сбиться.
+ */
+const coachExpect = computed(() => {
+	const step = tutorial.value
+	if (!step || runStarted.value || isEnd.value) return null
+	return dirs.value.length < step.dirs.length
+		? step.dirs[dirs.value.length]
+		: 'run'
+})
+
+/**
+ * Путь мыши, нарисованный на поле стрелками: куда она побежит по уже
+ * набранным командам (бледно) и по той, что ждёт обучение (ярко).
+ * Считается тем же правилом, что и настоящий бег: прямо до стены или развилки.
+ */
+const ghost = computed(() => {
+	const cells: Record<string, { dir: string; next: boolean }> = {}
+	if (!tutorial.value || runStarted.value || isEnd.value) return cells
+
+	const plan = [...dirs.value]
+	const want = coachExpect.value
+	if (want && want !== 'run') plan.push(want)
+
+	let pos: [number, number] = [0, 0]
+	plan.forEach((dir, index) => {
+		let next = nextPost(maze.value, pos, DIRS[dir])
+		while (next) {
+			pos = next
+			cells[`${pos[0]},${pos[1]}`] = {
+				dir,
+				next: index === dirs.value.length,
+			}
+			if (isCross(maze.value, pos)) break
+			next = nextPost(maze.value, pos, DIRS[dir])
+		}
+	})
+	return cells
+})
+
+function arrowDisabled(d: string) {
+	if (isEnd.value || dirs.value.length >= MAX_DIRS || catDirs.value.length) {
+		return true
+	}
+	return coachExpect.value !== null && coachExpect.value !== d
+}
+
 // Рекорд для HUD. Счёт забега — число пройденных лабиринтов (см. save).
 const bestScore = computed(() =>
 	gameStore.gameStats.reduce((best, stat) => Math.max(best, stat.score), 0)
@@ -120,6 +198,7 @@ const runStarted = ref(false)
 // его останавливает и вопрос о выходе: пока игрок решает, время не должно течь.
 const timerPaused = computed(
 	() =>
+		tutorial.value !== null ||
 		adShowing.value ||
 		promoOpen.value ||
 		exitAsk.value ||
@@ -210,6 +289,17 @@ function keydown(e: KeyboardEvent) {
 	}
 	if (isEnd.value || catDirs.value.length) return
 
+	if (coachExpect.value) {
+		const want: Record<string, string> = {
+			ArrowLeft: 'left',
+			ArrowRight: 'right',
+			ArrowUp: 'top',
+			ArrowDown: 'bottom',
+			Enter: 'run',
+		}
+		if (want[e.key] !== coachExpect.value) return
+	}
+
 	switch (e.key) {
 		case 'ArrowLeft':
 			answer('left')
@@ -248,7 +338,9 @@ function keydown(e: KeyboardEvent) {
 
 function drawMaze() {
 	mazeSeed.value = Math.floor(Math.random() * 0x7fffffff)
-	maze.value = getMaze(sizes.value.rows, sizes.value.cols)
+	maze.value = tutorial.value
+		? tutorial.value.maze.map((row) => [...row])
+		: getMaze(sizes.value.rows, sizes.value.cols)
 
 	if (mazeRef.value) {
 		blockSize = mazeRef.value.getBoundingClientRect().width / sizes.value.cols
@@ -489,15 +581,27 @@ function again() {
 	if (advancing.value) return
 	advancing.value = true
 
+	// Учебные лабиринты: без рекламы и без роста уровня.
+	if (tutorial.value) {
+		if (isLastTutorial.value) {
+			tutorialStep.value = null
+			gameStore.tutorialPassed = true
+		} else {
+			tutorialStep.value = (tutorialStep.value ?? 0) + 1
+		}
+		nextRound(false)
+		return
+	}
+
 	if (!earnsInterstitial()) {
 		nextRound()
 		return
 	}
 
-	showInterstitial(nextRound)
+	showInterstitial(() => nextRound())
 }
 
-function nextRound() {
+function nextRound(levelUp = true) {
 	advancing.value = false
 
 	if (timerID) clearTimeout(timerID)
@@ -507,7 +611,7 @@ function nextRound() {
 	reset()
 	isStarted.value = false
 
-	level.value += 1
+	if (levelUp) level.value += 1
 	drawMaze()
 	isStarted.value = true
 	audioCont.play('gameMusic')
@@ -533,10 +637,17 @@ function nextRound() {
 
 		<!-- Где игрок в забеге и сколько надо, чтобы побить рекорд. -->
 		<div class="hud">
-			<div class="hud__chip hud__chip--level">
+			<div v-if="tutorial" class="hud__chip hud__chip--steps">
+				<span
+					v-for="(_, i) in TUTORIAL"
+					:key="i"
+					:class="{ on: i <= (tutorialStep ?? 0) }"
+				></span>
+			</div>
+			<div v-else class="hud__chip hud__chip--level">
 				{{ $t('continueFrom', { level: level + 1 }) }}
 			</div>
-			<div v-if="bestScore > 0" class="hud__chip hud__chip--best">
+			<div v-if="bestScore > 0 && !tutorial" class="hud__chip hud__chip--best">
 				<svg viewBox="0 0 24 24"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z" /></svg>
 				{{ $t('best', { score: bestScore }) }}
 			</div>
@@ -557,12 +668,27 @@ function nextRound() {
 								cell: col,
 								[wallClass(mazeRowInd, colInd)]: col,
 								start: mazeRowInd === 0 && colInd === 0,
+								mark:
+									!!tutorial?.mark &&
+									!runStarted &&
+									tutorial.mark[0] === colInd &&
+									tutorial.mark[1] === mazeRowInd,
 								end:
 									mazeRowInd === maze.length - 1 &&
 									colInd === maze[mazeRowInd].length - 1,
 							}"
 							class="maze__col"
 						>
+							<span
+								v-if="ghost[`${colInd},${mazeRowInd}`]"
+								class="ghost"
+								:class="[
+									ghost[`${colInd},${mazeRowInd}`].dir,
+									{ next: ghost[`${colInd},${mazeRowInd}`].next },
+								]"
+							>
+								<svg viewBox="0 0 24 24"><path d="M3.5 9.5h8.5V4.5l8.5 7.5-8.5 7.5v-5H3.5z" /></svg>
+							</span>
 							<div
 								v-show="mazeRowInd === 0 && colInd === 0"
 								class="tesei"
@@ -599,8 +725,8 @@ function nextRound() {
 					каждом шаге, а только на развилке. Без этого новичок жмёт
 					стрелку на каждую клетку пути и проигрывает, не поняв почему.
 				-->
-				<div v-if="!dirs.length" class="dirs__hint">{{ $t('dirsHint') }}</div>
-				<div v-else class="dirs__count">{{ dirs.length }}/{{ MAX_DIRS }}</div>
+				<div v-if="!dirs.length && !tutorial" class="dirs__hint">{{ $t('dirsHint') }}</div>
+				<div v-else-if="dirs.length" class="dirs__count">{{ dirs.length }}/{{ MAX_DIRS }}</div>
 				<div class="dirs__in">
 					<div
 						v-for="(dir, dirInd) in dirs"
@@ -622,21 +748,29 @@ function nextRound() {
 				<button
 					v-for="d in ['left', 'right', 'top', 'bottom']"
 					:key="d"
-					:class="[d, { disabled: isEnd || dirs.length >= MAX_DIRS || catDirs.length }]"
+					:class="[d, { disabled: arrowDisabled(d), wanted: coachExpect === d }]"
 					class="commands__arrow"
 					@click="answer(d), audioCont.playAudio('dir')"
 				>
 					<svg viewBox="0 0 24 24"><path d="M3.5 9.5h8.5V4.5l8.5 7.5-8.5 7.5v-5H3.5z" /></svg>
+					<span v-if="coachExpect === d" class="tap-hand"><svg viewBox="0 0 24 24"><path d="M9 11.5V4.6a1.6 1.6 0 0 1 3.2 0V10h.4V8.6a1.6 1.6 0 0 1 3.2 0V10h.4V9.4a1.6 1.6 0 0 1 3.2 0V15a6 6 0 0 1-6 6h-1.4a5 5 0 0 1-4-2l-3.1-4.3a1.5 1.5 0 0 1 2.3-1.9L9 14.6z" /></svg></span>
 				</button>
 				<button
-					:class="{ disabled: isEnd || !dirs.length || catDirs.length }"
+					:class="{ disabled: isEnd || !dirs.length || catDirs.length || !!tutorial }"
 					class="commands__undo"
 					@click="removeAnswer(dirs.length - 1), audioCont.playAudio('dir')"
 				>
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" /></svg>
 				</button>
 				<button
-					:class="{ disabled: isEnd || !dirs.length || catDirs.length }"
+					:class="{
+						disabled:
+							isEnd ||
+							!dirs.length ||
+							catDirs.length ||
+							(coachExpect !== null && coachExpect !== 'run'),
+						wanted: coachExpect === 'run',
+					}"
 					class="commands__run"
 					@click="
 						checkAnswers(),
@@ -645,6 +779,7 @@ function nextRound() {
 					"
 				>
 					<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
+					<span v-if="coachExpect === 'run'" class="tap-hand"><svg viewBox="0 0 24 24"><path d="M9 11.5V4.6a1.6 1.6 0 0 1 3.2 0V10h.4V8.6a1.6 1.6 0 0 1 3.2 0V10h.4V9.4a1.6 1.6 0 0 1 3.2 0V15a6 6 0 0 1-6 6h-1.4a5 5 0 0 1-4-2l-3.1-4.3a1.5 1.5 0 0 1 2.3-1.9L9 14.6z" /></svg></span>
 				</button>
 			</div>
 		</div>
@@ -652,7 +787,19 @@ function nextRound() {
 		<div v-if="isWin" class="next-modal__shade" aria-hidden="true"></div>
 		<div v-if="isWin" class="next-modal">
 			<img class="next-modal__mouse" src="@/assets/img/v2/mouse-win.webp" alt="" />
-			<div class="next-modal__level">
+			<!-- Обучение пройдено: дальше всерьёз — время идёт, кот ждёт. -->
+			<div v-if="tutorial && isLastTutorial" class="next-modal__warn">
+				<div class="warn-timer">
+					<span class="warn-timer__bar"></span>
+					<img src="@/assets/img/v2/token-cat.webp" alt="" />
+				</div>
+			</div>
+			<div v-else-if="tutorial" class="next-modal__stars">
+				<svg viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z" /></svg>
+				<svg viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z" /></svg>
+				<svg viewBox="0 0 24 24"><path d="M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z" /></svg>
+			</div>
+			<div v-else class="next-modal__level">
 				<div>{{ $t('nextMaze') }}</div>
 				<div>{{ level + 2 }}</div>
 			</div>
@@ -661,7 +808,10 @@ function nextRound() {
 				class="next-modal__btn"
 				@click="again(), audioCont.playAudio('click')"
 			>
-				{{ $t('run') }}
+				<template v-if="tutorial" #icon>
+					<svg viewBox="0 0 24 24"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
+				</template>
+				{{ tutorial ? (isLastTutorial ? $t('start') : '') : $t('run') }}
 			</UiButton>
 		</div>
 
@@ -755,6 +905,25 @@ function nextRound() {
 
 		&--level {
 			font-size: 18px;
+		}
+
+		/* Прогресс обучения точками: без слов, на любом языке. */
+		&--steps {
+			gap: 8px;
+			padding: 9px 12px 11px;
+
+			span {
+				width: 14px;
+				height: 14px;
+				border-radius: 50%;
+				background: rgba(0, 0, 0, 0.25);
+				box-shadow: inset 0 2px 0 rgba(0, 0, 0, 0.2);
+
+				&.on {
+					background: $sun;
+					box-shadow: 0 0 0 2px $sunEdge;
+				}
+			}
 		}
 
 		/* Рекорд — на каменной плашке с короной, как на макете: отличается от
@@ -935,6 +1104,81 @@ function nextRound() {
 	}
 }
 
+/* Путь мыши в обучении: стрелки по клеткам, яркие — следующая команда. */
+.ghost {
+	position: absolute;
+	inset: 22%;
+	z-index: 3;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	opacity: 0.35;
+	pointer-events: none;
+
+	svg {
+		width: 100%;
+		height: 100%;
+		fill: $leafEdge;
+	}
+
+	&.left svg {
+		transform: rotate(180deg);
+	}
+	&.top svg {
+		transform: rotate(-90deg);
+	}
+	&.bottom svg {
+		transform: rotate(90deg);
+	}
+
+	&.next {
+		opacity: 1;
+
+		svg {
+			fill: $sun;
+			stroke: $sunEdge;
+			stroke-width: 1.6;
+			stroke-linejoin: round;
+		}
+		animation: ghostPulse 0.9s ease-in-out infinite;
+	}
+}
+
+@keyframes ghostPulse {
+	0%,
+	100% {
+		opacity: 0.55;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+/* Клетка, на которую обучение просит посмотреть (развилка). */
+.maze__col.mark::after {
+	content: '';
+	position: absolute;
+	inset: 6%;
+	z-index: 2;
+	border: 3px solid $sun;
+	border-radius: 50%;
+	box-shadow: 0 0 0 2px $sunEdge;
+	animation: markPulse 1s ease-in-out infinite;
+	pointer-events: none;
+}
+
+@keyframes markPulse {
+	0%,
+	100% {
+		transform: scale(0.85);
+		opacity: 0.6;
+	}
+	50% {
+		transform: scale(1.05);
+		opacity: 1;
+	}
+}
+
 /* Очередь команд: деревянная рама, кремовое поле, фишки-стрелки. */
 .dirs {
 	position: relative;
@@ -1086,6 +1330,23 @@ function nextRound() {
 			opacity: 0.45;
 			filter: saturate(0.6);
 		}
+
+		/* Кнопка, которую ждёт обучение: светится и подпрыгивает. */
+		&.wanted {
+			position: relative;
+			animation: coachHop 0.9s ease-in-out infinite;
+
+			&::after {
+				content: '';
+				position: absolute;
+				inset: -7px;
+				border: 3px solid #fff;
+				border-radius: 18px;
+				box-shadow: 0 0 0 3px $sunEdge;
+				animation: coachRing 0.9s ease-in-out infinite;
+				pointer-events: none;
+			}
+		}
 	}
 
 	&__arrow {
@@ -1167,7 +1428,150 @@ function nextRound() {
 				font-weight: 900;
 				@include outlined($sun, $woodEdge);
 			}
+
 		}
+	}
+}
+
+/* Рука-подсказка: «нажми сюда». Сидит у правого нижнего угла кнопки. */
+.tap-hand {
+	position: absolute;
+	right: -12px;
+	bottom: -18px;
+	z-index: 2;
+	width: 34px;
+	height: 34px;
+	pointer-events: none;
+	animation: tap 0.9s ease-in-out infinite;
+
+	svg {
+		width: 100% !important;
+		height: 100% !important;
+		fill: #fff;
+		stroke: $ink;
+		stroke-width: 1.4;
+		stroke-linejoin: round;
+		transform: rotate(-20deg);
+	}
+}
+
+@keyframes tap {
+	0%,
+	100% {
+		transform: translate(4px, 6px);
+	}
+	45% {
+		transform: translate(-2px, -2px) scale(0.92);
+	}
+}
+
+@keyframes coachHop {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+	40% {
+		transform: translateY(-6px);
+	}
+}
+
+@keyframes coachRing {
+	0%,
+	100% {
+		opacity: 0.4;
+	}
+	50% {
+		opacity: 1;
+	}
+}
+
+.next-modal__stars {
+	display: flex;
+	align-items: flex-end;
+	gap: 6px;
+	margin: 4px 0 22px;
+
+	svg {
+		width: 56px;
+		height: 56px;
+		fill: $sun;
+		stroke: $woodEdge;
+		stroke-width: 1.4;
+		stroke-linejoin: round;
+		filter: drop-shadow(0 3px 0 $woodEdge);
+		animation: starPop 0.5s ease-out both;
+	}
+
+	svg:nth-child(2) {
+		width: 72px;
+		height: 72px;
+		animation-delay: 0.15s;
+	}
+
+	svg:nth-child(3) {
+		animation-delay: 0.3s;
+	}
+}
+
+@keyframes starPop {
+	from {
+		transform: scale(0);
+	}
+	70% {
+		transform: scale(1.2);
+	}
+	to {
+		transform: scale(1);
+	}
+}
+
+/* «Дальше всерьёз»: полоса времени тает, кот на её конце готов бежать. */
+.next-modal__warn {
+	margin: 6px 0 26px;
+}
+
+.warn-timer {
+	position: relative;
+	width: 230px;
+	height: 30px;
+	@include wood(14px);
+	padding: 5px;
+	box-sizing: border-box;
+
+	&__bar {
+		display: block;
+		height: 100%;
+		border-radius: 8px;
+		background: linear-gradient(180deg, #8be04f, #4fae22);
+		animation: drain 2.4s linear infinite;
+	}
+
+	img {
+		position: absolute;
+		right: -26px;
+		top: 50%;
+		width: 60px;
+		height: 60px;
+		transform: translateY(-55%);
+		animation: catReady 0.6s ease-in-out infinite alternate;
+	}
+}
+
+@keyframes drain {
+	from {
+		width: 100%;
+	}
+	to {
+		width: 0;
+	}
+}
+
+@keyframes catReady {
+	from {
+		transform: translateY(-55%) rotate(-6deg);
+	}
+	to {
+		transform: translateY(-62%) rotate(6deg);
 	}
 }
 
