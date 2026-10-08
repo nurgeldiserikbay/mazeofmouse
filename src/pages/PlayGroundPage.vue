@@ -466,6 +466,7 @@ function checkWin() {
 			wonStars.value = starsFor(timerRef.value?.fraction ?? 0)
 			gameStore.setStars(level.value, wonStars.value)
 			session.mazesWon += 1
+			Admob.gameFinished()
 			chapterDone.value = (level.value + 1) % CHAPTER_SIZE === 0
 		} else {
 			wonStars.value = 3
@@ -558,9 +559,14 @@ function removeAnswer(index: number) {
  * после поимки: это естественная пауза, а не наказание за проигрыш.
  */
 function save() {
+	// Реклама решается ДО записи результата: isFirstGame() смотрит на таблицу
+	// результатов, и после записи первый проигрыш новичка уже не считался бы
+	// первой партией. Гейт тот же, что у again(): первые лабиринты сессии — без
+	// полноэкранной рекламы.
+	Admob.gameFinished()
+	if (!inQuietStart()) showInterstitial()
 	gameStore.recordGameStat(level.value)
 	gameStore.currentLevel = checkpointOf(level.value)
-	showInterstitial()
 	nextTick(() => {
 		pageStore.toBackLink()
 	})
@@ -639,9 +645,13 @@ function restartRound() {
  * заход новичка, так что «заработал» не значит «покажется».
  */
 function earnsInterstitial() {
-	// Первые лабиринты сессии — без полноэкранной рекламы: игрок только сел.
-	if (session.mazesWon <= QUIET_START_MAZES) return false
+	if (inQuietStart()) return false
 	return (level.value + 1) % 4 === 0
+}
+
+/** Первые лабиринты сессии — без полноэкранной рекламы: игрок только сел. */
+function inQuietStart() {
+	return session.mazesWon <= QUIET_START_MAZES
 }
 
 /** Нажатие «Бежать» уже обрабатывается: второе за тот же переход игнорируем. */

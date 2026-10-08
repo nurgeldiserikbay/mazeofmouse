@@ -1,0 +1,39 @@
+diff --git a/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java b/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java
+index c6291395a02ca08db7dc3edd047ba57788aabab7..e9626728d38c49d66225d5c1513e0314312b95cd 100644
+--- a/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java
++++ b/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java
+@@ -107,16 +107,24 @@ public class BannerExecutor extends Executor {
+             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+                 View rootView = activitySupplier.get().getWindow().getDecorView();
+                 rootView.setOnApplyWindowInsetsListener((v, insets) -> {
+-                    int bottomInset = insets.getSystemWindowInsetBottom();
+-                    int topInset = insets.getSystemWindowInsetTop();
+-
+-                    if ("TOP_CENTER".equals(adOptions.position)) {
+-                        mAdViewLayoutParams.setMargins(0, topInset, 0, 0);
+-                    } else {
+-                        mAdViewLayoutParams.setMargins(0, 0, 0, bottomInset);
+-                    }
+-
+-                    mAdViewLayout.setLayoutParams(mAdViewLayoutParams);
++                    final int bottomInset = insets.getSystemWindowInsetBottom();
++                    final int topInset = insets.getSystemWindowInsetTop();
++
++                    // PATCH (from 01-ChessHorse): Capacitor 8 SystemBars may already pad the
++                    // parent layout (the one the banner lives in) by the system bars on
++                    // WebView < 140. Adding the full inset again lifted the banner twice
++                    // and it covered the game. Subtract the padding the parent already
++                    // has; post() so we read it after Capacitor's own listener ran.
++                    v.post(() -> {
++                        int parentTop = mViewGroup != null ? mViewGroup.getPaddingTop() : 0;
++                        int parentBottom = mViewGroup != null ? mViewGroup.getPaddingBottom() : 0;
++                        if ("TOP_CENTER".equals(adOptions.position)) {
++                            mAdViewLayoutParams.setMargins(0, Math.max(0, topInset - parentTop), 0, 0);
++                        } else {
++                            mAdViewLayoutParams.setMargins(0, 0, 0, Math.max(0, bottomInset - parentBottom));
++                        }
++                        mAdViewLayout.setLayoutParams(mAdViewLayoutParams);
++                    });
+                     return insets;
+                 });
+             }

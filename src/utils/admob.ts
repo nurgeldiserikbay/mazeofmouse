@@ -42,6 +42,14 @@ const INTERSTITIALS_ENABLED: boolean = true
 // при уровне в 30–60 с это выходило почти «объявление на каждый лабиринт».
 const INTERSTITIAL_MIN_INTERVAL_MS = 100_000
 
+// Первые минуты после запуска — без полноэкранной рекламы: больше всего
+// игроков уходит именно в начале первой сессии.
+const INTERSTITIAL_GRACE_MS = 180_000
+
+// Не чаще, чем каждая 3-я завершённая партия (победа или проигрыш). Считается
+// здесь, а не в странице, чтобы кап покрывал все точки показа.
+const INTERSTITIAL_EVERY_N_GAMES = 3
+
 // Страховка от «зависшего» показа: если событие Dismissed по какой-то причине не
 // пришло и приложение не сообщило о возврате на передний план, блокировка
 // игрового потока снимается по таймеру. Системные панели этот путь НЕ трогает
@@ -85,6 +93,11 @@ class Admob {
 	private sawBackgroundDuringShow = false
 	// Время последнего фактического показа интерстишла (для частотного капа).
 	private lastInterstitialAt = 0
+	// Время запуска приложения (для стартовой паузы без рекламы).
+	private readonly startedAt = Date.now()
+	// Завершённые партии с запуска и их число на момент последнего показа.
+	private gamesFinished = 0
+	private gamesAtLastInterstitial = 0
 	// Таймер-страховка на случай, если Dismissed не придёт.
 	private watchdogId: ReturnType<typeof setTimeout> | undefined
 	// Состояние предзагруженного объявления.
@@ -442,6 +455,11 @@ class Admob {
 		}
 	}
 
+	/** Отметить завершённую партию (победу или проигрыш) — для частотного капа. */
+	gameFinished() {
+		this.gamesFinished += 1
+	}
+
 	async interstitial({
 		isFirst,
 		onInterstitialAdClosed,
@@ -456,13 +474,18 @@ class Admob {
 			return
 		}
 
-		// Первый заход новичка и частотный кап — реклама не показывается.
+		// Первый заход новичка, стартовая пауза и частотный кап (по времени и по
+		// числу партий) — реклама не показывается.
 		const now = Date.now()
 		if (
 			isFirst ||
-			now - this.lastInterstitialAt < INTERSTITIAL_MIN_INTERVAL_MS
+			now - this.startedAt < INTERSTITIAL_GRACE_MS ||
+			now - this.lastInterstitialAt < INTERSTITIAL_MIN_INTERVAL_MS ||
+			this.gamesFinished - this.gamesAtLastInterstitial <
+				INTERSTITIAL_EVERY_N_GAMES
 		) {
 			onInterstitialAdClosed()
+			void this.preloadInterstitial()
 			return
 		}
 
@@ -479,6 +502,7 @@ class Admob {
 		this.interstitialClosed = false
 		this.sawBackgroundDuringShow = false
 		this.lastInterstitialAt = now
+		this.gamesAtLastInterstitial = this.gamesFinished
 
 		// Возвращаем системные панели, чтобы кнопка закрытия объявления заведомо
 		// была в видимой области, и ставим страховку на случай пропавшего Dismissed.
