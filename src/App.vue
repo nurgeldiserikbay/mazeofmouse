@@ -11,6 +11,23 @@ import { usePageStore } from '@/store/pageStore'
 import { useGameStore } from '@/store/gameStore'
 import { useAdsStore } from '@/store/adsStore'
 
+/**
+ * Масштаб интерфейса под планшеты.
+ *
+ * Вёрстка рассчитана на телефон (колонка до 480px), и на планшете игра
+ * стояла узкой полоской вверху экрана с пустой лужайкой ниже. Вместо отдельной
+ * планшетной вёрстки весь интерфейс пропорционально увеличивается: на телефоне
+ * масштаб 1, на 7" около 1.3, на 10" около 1.6. Применяется через zoom на #app
+ * (style.scss); высоты, привязанные к экрану, делятся на него обратно.
+ */
+function applyUiZoom() {
+	const zoom = Math.min(window.innerWidth / 440, window.innerHeight / 800)
+	const clamped = Math.round(Math.min(1.8, Math.max(1, zoom)) * 20) / 20
+	document.documentElement.style.setProperty('--ui-zoom', String(clamped))
+}
+applyUiZoom()
+window.addEventListener('resize', applyUiZoom)
+
 const pageStore = usePageStore()
 const gameStore = useGameStore()
 const adsStore = useAdsStore()
@@ -50,6 +67,6 @@ onMounted(async () => {
 <style lang="scss" scoped>
 .wrapper {
 	width: 100%;
-	min-height: 100dvh;
+	min-height: calc(100dvh / var(--ui-zoom, 1));
 }
 </style>

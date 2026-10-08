@@ -81,7 +81,7 @@ function tap() {
 	   Инсет входит в её высоту, а не в её отступ: когда баннера нет, отодвигать
 	   не подо что, и уехавшая вверх полоса оставила бы под собой пустую кромку.
 	*/
-	height: var(--ad-band);
+	height: var(--ad-band-z);
 	z-index: 4;
 	overflow: hidden;
 	pointer-events: none;
@@ -110,9 +110,9 @@ function tap() {
 	position: absolute;
 	left: 0;
 	right: 0;
-	bottom: var(--ad-inset, 0px);
+	bottom: calc(var(--ad-inset, 0px) / var(--ui-zoom, 1));
 	width: 100%;
-	height: var(--ad-slot, 56px);
+	height: calc(var(--ad-slot, 56px) / var(--ui-zoom, 1));
 	box-sizing: border-box;
 	padding: 0 12px;
 	border: none;

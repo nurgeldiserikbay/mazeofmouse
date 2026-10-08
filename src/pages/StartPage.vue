@@ -185,7 +185,7 @@ onBeforeUnmount(() => {
 	position: relative;
 	padding-top: 92px;
 	padding-bottom: 18px;
-	height: 100dvh;
+	height: calc(100dvh / var(--ui-zoom, 1));
 	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;

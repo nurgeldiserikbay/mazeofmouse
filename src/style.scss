@@ -31,6 +31,8 @@
 */
 :root {
 	--ad-band: calc(var(--ad-slot, 56px) + var(--ad-inset, 0px));
+	/* Та же зона в координатах увеличенного интерфейса. */
+	--ad-band-z: calc(var(--ad-band) / var(--ui-zoom, 1));
 }
 
 body {
@@ -51,9 +53,13 @@ button {
 	font-family: $font;
 }
 
+/* Масштаб под планшеты, см. applyUiZoom в App.vue. Всё, что внутри меряется
+   высотой экрана (100dvh) или рекламной зоной (в настоящих пикселях), делит
+   их на --ui-zoom, иначе zoom увеличил бы и их. */
 #app {
+	zoom: var(--ui-zoom, 1);
 	position: relative;
-	min-height: 100dvh;
+	min-height: calc(100dvh / var(--ui-zoom, 1));
 	overflow: hidden;
 	width: 100%;
 	max-width: 680px;

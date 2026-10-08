@@ -974,7 +974,7 @@ function nextRound(levelUp = true) {
 }
 
 .page {
-	height: 100dvh;
+	height: calc(100dvh / var(--ui-zoom, 1));
 	/*
 	   Низ страницы отодвинут на настоящую высоту объявления, а не на
 	   фиксированные 65px, как было раньше: adaptive-баннер на планшете
@@ -983,7 +983,7 @@ function nextRound(levelUp = true) {
 	   «inadvertent clicks». Высоту публикует admob.ts через --ad-slot, лишние
 	   8px — зазор, чтобы палец не задевал объявление у самой кромки кнопок.
 	*/
-	padding: 10px 15px calc(var(--ad-band) + 8px);
+	padding: 10px 15px calc(var(--ad-band-z) + 8px);
 	box-sizing: border-box;
 	display: flex;
 	flex-direction: column;
