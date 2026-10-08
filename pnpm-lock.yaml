@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  '@capacitor-community/admob@8.0.0': f2383eb2c173953677a6ab839184205477ea316efd95e6e56aa412e837d05e65
+  '@capacitor-community/admob@8.0.0': 0af5818f9561298e727bc86b3b86abe7ee80c537f0b4e5041ef32d1d3ad49501
 
 importers:
 
@@ -16,7 +16,7 @@ importers:
         version: 0.0.19(@capacitor/core@8.5.0)
       '@capacitor-community/admob':
         specifier: ^8.0.0
-        version: 8.0.0(patch_hash=f2383eb2c173953677a6ab839184205477ea316efd95e6e56aa412e837d05e65)
+        version: 8.0.0(patch_hash=0af5818f9561298e727bc86b3b86abe7ee80c537f0b4e5041ef32d1d3ad49501)
       '@capacitor/android':
         specifier: ^8.5.0
         version: 8.5.0(@capacitor/core@8.5.0)
@@ -4608,7 +4608,7 @@ snapshots:
 
   '@canvas/image-data@1.1.0': {}
 
-  '@capacitor-community/admob@8.0.0(patch_hash=f2383eb2c173953677a6ab839184205477ea316efd95e6e56aa412e837d05e65)':
+  '@capacitor-community/admob@8.0.0(patch_hash=0af5818f9561298e727bc86b3b86abe7ee80c537f0b4e5041ef32d1d3ad49501)':
     dependencies:
       '@capacitor/core': 8.5.0
       '@rdlabo/capacitor-docgen': 0.4.1

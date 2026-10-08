@@ -64,6 +64,14 @@ const INTERSTITIAL_WATCHDOG_MS = 25_000
 // полоса чуть выше него читается как отдельная техническая строка.
 const BANNER_RESERVE_HEIGHT = 56
 
+/**
+ * Последние известные размеры рекламной зоны: высота объявления и на сколько
+ * плагин поднял его над низом экрана. Со второго запуска зона резервируется
+ * сразу правильной — кросс-промо и пришедший позже баннер занимают одно и то
+ * же место, и поле не прыгает.
+ */
+const AD_LAYOUT_KEY = 'maze.adLayout'
+
 const BANNER_AD_ID = 'ca-app-pub-9702825788968948/7982858451'
 const INTERSTITIAL_AD_ID = 'ca-app-pub-9702825788968948/9323860288'
 
@@ -127,6 +135,16 @@ class Admob {
 	private bannerLoaded = false
 	/** Последняя известная высота объявления. */
 	private bannerHeightPx = 0
+	/**
+	 * На сколько плагин поднял баннер над нижней кромкой (CSS px). Сообщает
+	 * пропатченный плагин событием bannerAdOffsetChanged (patches/). null — ещё
+	 * не сообщил: Android ниже 15 баннер не поднимает.
+	 */
+	private bannerOffsetPx: number | null = null
+
+	constructor() {
+		this.restoreLayout()
+	}
 
 	// Детская конфигурация запросов применяется именно в initialize(), поэтому ни
 	// один запрос рекламы не должен уйти раньше. Промис кэшируется: точки показа
@@ -170,46 +188,62 @@ class Admob {
 	}
 
 	/**
-	 * Отодвигает рекламную зону туда же, куда система отодвинула баннер.
+	 * Добавляет к рекламной зоне подъём баннера над низом экрана.
 	 *
-	 * Ставится и снимается вместе с самим объявлением, а не один раз при старте:
-	 * отодвигать нужно под баннер, а когда баннера нет — не подо что, в полосе
-	 * стоит кросс-промо, и уехавшая вверх полоса оставит под собой пустую кромку.
-	 *
-	 * Само число не считается здесь и не может: его знает браузер и отдаёт через
-	 * `env(safe-area-inset-bottom)` — то же окно и те же инсеты, что читает
-	 * плагин. Переменной присваивается выражение, а не результат: инсет меняется
-	 * вместе с системными панелями, и вычислять его должен CSS.
-	 *
-	 * Требует `viewport-fit=cover` в `index.html` — без него `env()` всегда ноль
-	 * и вся эта настройка молча ничего не делает.
+	 * На Android 15+ плагин ставит баннеру нижний отступ на высоту панели
+	 * навигации (BannerExecutor.java, ветка VANILLA_ICE_CREAM), и страница
+	 * должна держать под объявлением ровно столько же места. Отступ не снимается,
+	 * когда баннер пропал: в той же зоне встаёт кросс-промо, и полоса не должна
+	 * менять высоту (см. clearBanner).
 	 */
-	private setBannerInset(on: boolean) {
+	private setBannerInset() {
 		if (typeof document === 'undefined') return
 		const root = document.documentElement.style
-		if (on) {
-			// Нижняя граница не ноль, а 16px: плагин отодвигает баннер от низа на
-			// системный инсет, взятый нативно (BannerExecutor.java, ветка Android
-			// 15+), а вебвью тот же инсет может отдать нулём — в immersive-режиме
-			// системные панели скрыты, и env() про них уже ничего не знает. При
-			// расхождении зона оказалась бы ровно по высоте объявления, и под
-			// висящим баннером снова был бы виден лабиринт. 16px — минимальная
-			// подложка, которая закрывает это расхождение и читается как кромка.
-			root.setProperty(
-				'--ad-inset',
-				'max(env(safe-area-inset-bottom, 0px), 16px)'
+		// Точный подъём от плагина важнее env(): в immersive-режиме env() равен
+		// нулю, а плагин всё равно поднимает баннер на высоту панели кнопок.
+		// Раньше здесь стояло «не меньше 16px», а реальный подъём ~48px — и
+		// баннер был выше зарезервированной полосы, заезжая на игру.
+		if (this.bannerOffsetPx !== null) {
+			root.setProperty('--ad-inset', `${this.bannerOffsetPx}px`)
+		} else if (!root.getPropertyValue('--ad-inset')) {
+			root.setProperty('--ad-inset', 'env(safe-area-inset-bottom, 0px)')
+		}
+	}
+
+	/** Поставить зону по запомненным размерам — до прихода первого баннера. */
+	private restoreLayout() {
+		if (typeof document === 'undefined') return
+		try {
+			const saved = JSON.parse(localStorage.getItem(AD_LAYOUT_KEY) || 'null')
+			if (saved?.slot > 0) {
+				this.bannerHeightPx = saved.slot
+				this.setSlotHeight(saved.slot)
+			}
+			if (typeof saved?.inset === 'number') {
+				this.bannerOffsetPx = saved.inset
+				this.setBannerInset()
+			}
+		} catch {
+			// Нет хранилища — останется резерв из вёрстки.
+		}
+	}
+
+	private rememberLayout() {
+		try {
+			localStorage.setItem(
+				AD_LAYOUT_KEY,
+				JSON.stringify({ slot: this.bannerHeightPx, inset: this.bannerOffsetPx })
 			)
-		} else {
-			root.removeProperty('--ad-inset')
+		} catch {
+			// Не запомнили — на следующем запуске зона выставится по событиям.
 		}
 	}
 
 	/** Слот пуст: место остаётся, но в нём снова кросс-промо. */
 	private clearBanner() {
+		// Размеры зоны не сбрасываем: на этом же месте снова встаёт кросс-промо,
+		// и если сжать полосу, поле прыгнет вниз, а при следующем баннере — вверх.
 		this.bannerLoaded = false
-		this.bannerHeightPx = 0
-		this.setSlotHeight(null)
-		this.setBannerInset(false)
 		this.publishBanner(false)
 	}
 
@@ -236,9 +270,19 @@ class Admob {
 		if (this.listenersRegistered) return
 		this.listenersRegistered = true
 
+		// Событие добавлено нашим патчем плагина (patches/), в типах его нет.
+		;(AdMob.addListener as unknown as (
+			event: string,
+			cb: (data: { bottom?: number }) => void
+		) => void)('bannerAdOffsetChanged', (data) => {
+			this.bannerOffsetPx = Math.max(0, Math.round(data?.bottom || 0))
+			this.setBannerInset()
+			this.rememberLayout()
+		})
+
 		AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
 			this.bannerLoaded = true
-			this.setBannerInset(true)
+			this.setBannerInset()
 			this.publishBanner(true, this.bannerHeightPx || BANNER_RESERVE_HEIGHT)
 		})
 
@@ -257,7 +301,8 @@ class Admob {
 				// состояние слота остаётся тем, какое было.
 				this.bannerHeightPx = size.height
 				this.setSlotHeight(size.height)
-				this.setBannerInset(true)
+				this.setBannerInset()
+				this.rememberLayout()
 				this.publishBanner(this.bannerLoaded, size.height)
 			}
 		)

@@ -1,8 +1,8 @@
 diff --git a/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java b/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java
-index c6291395a02ca08db7dc3edd047ba57788aabab7..e9626728d38c49d66225d5c1513e0314312b95cd 100644
+index c6291395a02ca08db7dc3edd047ba57788aabab7..7bb9e7cf4d622a33e5d1eda8ff714eab5cc0d059 100644
 --- a/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java
 +++ b/android/src/main/java/com/getcapacitor/community/admob/banner/BannerExecutor.java
-@@ -107,16 +107,24 @@ public class BannerExecutor extends Executor {
+@@ -107,16 +107,34 @@ public class BannerExecutor extends Executor {
              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
                  View rootView = activitySupplier.get().getWindow().getDecorView();
                  rootView.setOnApplyWindowInsetsListener((v, insets) -> {
@@ -27,13 +27,37 @@ index c6291395a02ca08db7dc3edd047ba57788aabab7..e9626728d38c49d66225d5c1513e0314
 +                    v.post(() -> {
 +                        int parentTop = mViewGroup != null ? mViewGroup.getPaddingTop() : 0;
 +                        int parentBottom = mViewGroup != null ? mViewGroup.getPaddingBottom() : 0;
++                        int topMargin = Math.max(0, topInset - parentTop);
++                        int bottomMargin = Math.max(0, bottomInset - parentBottom);
 +                        if ("TOP_CENTER".equals(adOptions.position)) {
-+                            mAdViewLayoutParams.setMargins(0, Math.max(0, topInset - parentTop), 0, 0);
++                            mAdViewLayoutParams.setMargins(0, topMargin, 0, 0);
 +                        } else {
-+                            mAdViewLayoutParams.setMargins(0, 0, 0, Math.max(0, bottomInset - parentBottom));
++                            mAdViewLayoutParams.setMargins(0, 0, 0, bottomMargin);
 +                        }
 +                        mAdViewLayout.setLayoutParams(mAdViewLayoutParams);
++
++                        // PATCH (from 01-ChessHorse): tell the page exactly how far the banner
++                        // was lifted (in CSS px). The page can't know it: in immersive mode
++                        // env(safe-area-inset-bottom) is 0 while this inset is not.
++                        JSObject offset = new JSObject();
++                        offset.put("top", Math.round(("TOP_CENTER".equals(adOptions.position) ? topMargin : 0) / density));
++                        offset.put("bottom", Math.round(("TOP_CENTER".equals(adOptions.position) ? 0 : bottomMargin) / density));
++                        notifyListeners("bannerAdOffsetChanged", offset);
 +                    });
                      return insets;
                  });
              }
+@@ -144,6 +162,13 @@ public class BannerExecutor extends Executor {
+ 
+             createNewAdView(adOptions);
+ 
++            // PATCH (from 01-ChessHorse): make sure the insets listener runs at least once
++            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM) {
++                activitySupplier.get().runOnUiThread(() ->
++                    activitySupplier.get().getWindow().getDecorView().requestApplyInsets()
++                );
++            }
++
+             call.resolve();
+         } catch (Exception ex) {
+             call.reject(ex.getLocalizedMessage(), ex);
