@@ -73,12 +73,6 @@ const sizes = computed(() => {
 let blockSize = 30
 const xlen = computed(() => sizes.value.cols)
 const ylen = computed(() => sizes.value.rows)
-const dirGrad: { [key: string]: number } = {
-	'-10': 180,
-	'10': 0,
-	'0-1': -90,
-	'01': 90,
-}
 const DIRS: { [key: string]: [number, number] } = {
 	top: [0, -1],
 	bottom: [0, 1],
@@ -91,8 +85,12 @@ const isStarted = ref(false)
 const adShowing = ref(false)
 const curPos = ref<[number, number]>([0, 0])
 const curCatPos = ref<[number, number]>([0, 0])
-const currentStyle = ref(`translate(0px, 0px) rotateZ(0deg)`)
-const currentCatStyle = ref(`translate(0px, 0px) rotateZ(0deg)`)
+// Фишки только сдвигаются по полю и не поворачиваются: мышь и кот нарисованы
+// мордочками анфас. Раньше их крутили по направлению бега и тут же
+// откручивали картинку обратно — во время анимации поворота два вращения
+// расходились, и мордочка кувыркалась.
+const currentStyle = ref(`translate(0px, 0px)`)
+const currentCatStyle = ref(`translate(0px, 0px)`)
 const maze = ref<number[][]>([])
 
 /**
@@ -489,7 +487,7 @@ function mouseMoveDir(dir: [number, number]) {
 		if (isCatch.value) return
 		const next = nextPost(maze.value, curPos.value, dir)
 		if (next) {
-			moveTesei(next, dir)
+			moveTesei(next)
 			if (!isCross(maze.value, next)) {
 				timerID = setTimeout(() => {
 					moveDir(dir)
@@ -512,7 +510,7 @@ function mouseCatMoveDir(dir: [number, number]) {
 		if (isCatch.value) return
 		const next = nextPost(maze.value, curCatPos.value, dir)
 		if (next) {
-			moveCat(next, dir)
+			moveCat(next)
 
 			if (next[0] === curPos.value[0] && next[1] === curPos.value[1]) {
 				animCatEnd()
@@ -533,21 +531,13 @@ function mouseCatMoveDir(dir: [number, number]) {
 	moveDir(dir)
 }
 
-function moveTesei(pos: [number, number], dir: [number, number]) {
-	currentStyle.value = `translate(${pos[0] * blockSize}px, ${
-		pos[1] * blockSize
-	}px) rotateZ(${dirGrad[dir.join('')]}deg)`
+function moveTesei(pos: [number, number]) {
+	currentStyle.value = `translate(${pos[0] * blockSize}px, ${pos[1] * blockSize}px)`
 	curPos.value = pos
 }
 
-function getReverseStyle(style: string) {
-	return `rotateZ(${-1 * parseInt(`${style.split('(').pop()}`)}deg)`
-}
-
-function moveCat(pos: [number, number], dir: [number, number]) {
-	currentCatStyle.value = `translate(${pos[0] * blockSize}px, ${
-		pos[1] * blockSize
-	}px) rotateZ(${dirGrad[dir.join('')]}deg)`
+function moveCat(pos: [number, number]) {
+	currentCatStyle.value = `translate(${pos[0] * blockSize}px, ${pos[1] * blockSize}px)`
 	curCatPos.value = pos
 }
 
@@ -619,8 +609,8 @@ function reset() {
 	runStarted.value = false
 	curPos.value = [0, 0]
 	curCatPos.value = [0, 0]
-	currentStyle.value = `translate(0px, 0px) rotateZ(0deg)`
-	currentCatStyle.value = `translate(0px, 0px) rotateZ(0deg)`
+	currentStyle.value = `translate(0px, 0px)`
+	currentCatStyle.value = `translate(0px, 0px)`
 	dirs.value = []
 	curDirs.value = 0
 	catDirs.value = []
@@ -796,7 +786,6 @@ function nextRound(levelUp = true) {
 								:style="{ transform: currentStyle }"
 							>
 								<img
-									:style="{ transform: getReverseStyle(currentStyle) }"
 									src="@/assets/img/v2/token-mouse.webp"
 									alt="mouse"
 								/>
@@ -810,7 +799,6 @@ function nextRound(levelUp = true) {
 								}"
 							>
 								<img
-									:style="{ transform: getReverseStyle(currentCatStyle) }"
 									src="@/assets/img/v2/token-cat.webp"
 									alt="cat"
 								/>
